@@ -4,6 +4,7 @@ import pandas as pd
 import logging
 from pandas.plotting import register_matplotlib_converters
 import pytz
+import numpy as np
 
 
 register_matplotlib_converters()
@@ -14,8 +15,11 @@ from metatrader5EasyT import timeframe
 from metatrader5EasyT import trade
 
 
-symbol="ROSN"
-rates_range = 200
+symbol="LKOH"
+# анные по 50 и 200 на Лукойл, Татнефть, Сбер, ВТБ, ммк, НЛМК, Северсталь, х5, магнит, Яндекс и озон
+symbols = ("LKOH", "TATN", "SBER", "MAGN", "VTBR", "NLMK", "CHMF", "X5", "MGNT", "YDEX", "OZON")
+# rates_range = 700
+rates_range = 300
 
 def init_MT5():
     # connect to MetaTrader 5
@@ -65,9 +69,11 @@ def moving_avarage(symbol, days_num):
     moving_avarages = windows.mean()
     moving_avarages_list = moving_avarages.tolist()
     rates_frame['MA'] = moving_avarages_list
+    rates_frame.dropna(inplace=True)
     #return moving_avarages_list[window_size - 1:]
     return rates_frame
 
+    # Получение торговых данных инструмента за рпеделенный промежуток
 def get_rates_frame(symbol, days_num):
     rates = get_history(symbol, mt5.TIMEFRAME_D1, days_num)
     rates_frame = pd.DataFrame(rates)
@@ -75,37 +81,72 @@ def get_rates_frame(symbol, days_num):
     rates_frame['close'] = pd.to_numeric(rates_frame['close'], downcast='float')
     return rates_frame
 
-def ma_analis(ma_list):
+def ma_analis(symbol, ma_list):
     general_frame = ma_list[0]
     
     print(general_frame)
-    for idx, ma in enumerate(ma_list):
-        # TODO: Определенно MA нужен объект содержащий имя, timeframe, и список значений скользящей
-        if (idx != 0):
-            general_frame['MA ' + str(idx)] = ma['MA']
+    if len(ma_list) != 1:
+        for idx, ma in enumerate(ma_list):
+            # TODO: Определенно MA нужен объект содержащий имя, timeframe, и список значений скользящей
+            if (idx != 0):
+                general_frame['MA ' + str(idx)] = ma['MA']
         
     print(general_frame)
-    general_frame.to_excel('D:\out_frame.xlsx')
+    general_frame.to_excel('D:\out_' + symbol + '_MA50_MA200_D1_frame.xlsx')
+    # return general_frame
 
+
+# Стратегия подсвечивает сигналы при работе с индикатором MA50 на исторических данных
+def strategyMA50(frame):
+    frame['diff'] = pd.to_numeric(frame['close']) - pd.to_numeric(frame['MA'])
+    frame['trend'] = pd.Series(frame['diff']) > 0
+
+    mask = frame.applymap(type) != bool
+    d = {True: 'UP', False: 'DOWN'}
+    frame = frame.where(mask, frame.replace(d))
+
+
+    # TODO: Смысл такой находим максималььно близкиеи точки к MA (возможно проверяем цену открытия плюсом)
+    # Добавляем в frame булевое значение true, после смотрим и\или жджем и смотрим следующую цену закрытия, 
+    # если при растущем тренде цена выше MA открываем buy, если тренд наснижение и цена закрытия ниже MA sell
+    
+    frame['target'] = (pd.to_numeric(frame['diff']) < 50) & (-50 < pd.to_numeric(frame['diff']))
+    frame['close_shift_-1'] = frame['close'].shift(-1)
+
+    # Ну вроде как ок. стоит зафиксировать!!!
+    conditions = [
+        (frame['target'] == True) & (frame['trend'] == "UP") & (frame['close_shift_-1'] > frame['MA']),
+        (frame['target'] == True) & (frame['trend'] == "DOWN") & (frame['close_shift_-1'] < frame['MA'])]
+    chois = ["Open_buy", "Open_Sell"]
+    frame['signal'] = np.select(conditions, chois, default="NaN")
+    
+    frame.to_excel('D:\out_' + symbol + '_MA50_frame_signal.xlsx')
 
 def startRobot():
     init_MT5()
     authorization()
-    selectSymbol(symbol)
     
     # print(get_price())
     # Парсинг данных
-    ma10 = moving_avarage(symbol, 10)
-    ma20 = moving_avarage(symbol, 20)
-    ma100 = moving_avarage(symbol, 100)
-    ma_analis(ma_list=(ma10, ma20, ma100))
+    # ma10 = moving_avarage(symbol, 10)
+    # ma20 = moving_avarage(symbol, 20)
+    """
+    for symbol in symbols:
+        print(symbol)
+        selectSymbol(symbol)
+        ma50 = moving_avarage(symbol, 50)
+        # ma200 = moving_avarage(symbol, 200)
+    """
+        # Похоже это стоит пихать только в определенную стратегию т.к. поведение робота должно быть разным при разных скользящих средних
+        # ma_analis(symbol, ma_list=(ma50, ma200))
+    selectSymbol(symbol)
+    ma50 = moving_avarage(symbol, 50)
+    strategyMA50(ma50)
     # print("MA10: " + str(ma10))
     # print("MA20: " + str(ma20))
     # print("MA100: " + str(ma100))
     # print(symbol + " Prcie: " + str(get_price(symbol)))
     # print(rates_frame)
-
-
 
 startRobot()
 # shut down connection to MetaTrader 5
