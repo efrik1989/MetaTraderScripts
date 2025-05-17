@@ -10,6 +10,9 @@ class Order():
         self.symbol = symbol
         self.trade_obj = trade.Trade(symbol, 1.0, 100, 100)
 
+    def position_check(self):
+        self.position_check()
+
     # Запись в файл времени и теукщей цены
     def fake_buy(self):
         output_file = open("simulation.txt", "w")
@@ -21,14 +24,16 @@ class Order():
         output_file.write(self.symbol + ", sell: " + self.open_price + ", " + datetime.timestamp() + "\n")
         output_file.close()
 
+    def fake_buy_sell_close(self, current_price):
+        output_file = open("simulation.txt", "w")
+        output_file.write(self.symbol + ", close_position: " + current_price + ", " + datetime.timestamp() + "\n") 
+        output_file.close()
+
     def position_open(self, buy: bool, sell: bool):
         self.trade_obj.position_open(buy, sell)
 
     def position_close(self):
         self.trade_obj.position_close()
-
-    def position_check(self):
-        self.position_check()
     
     # TODO: реализовать трэйлинг стоп
     # def tralingStop():

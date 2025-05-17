@@ -17,9 +17,7 @@ from metatrader5EasyT import trade
 
 symbol="LKOH"
 # анные по 50 и 200 на Лукойл, Татнефть, Сбер, ВТБ, ммк, НЛМК, Северсталь, х5, магнит, Яндекс и озон
-# symbols = ("LKOH", "TATN", "SBER", "MAGN", "VTBR", "NLMK", "CHMF", "X5", "MGNT", "YDEX", "OZON")
-# Роснефть, Х5, Сургутнефтегаз, МТС, Ростелеком, Астра, М-Видео, Алроса, ГМК Норникель, ЭН+Групп
-# symbols = ("ROSN", "X5", "SNGS", "MTSS", "RTKM", "ASTR", "MVID", "ALRS", "GMKN", "ENPG")
+symbols = ("LKOH", "TATN", "SBER", "MAGN", "VTBR", "NLMK", "CHMF", "X5", "MGNT", "YDEX", "OZON")
 # rates_range = 700
 rates_range = 300
 
@@ -91,16 +89,17 @@ def ma_analis(symbol, ma_list):
         for idx, ma in enumerate(ma_list):
             # TODO: Определенно MA нужен объект содержащий имя, timeframe, и список значений скользящей
             if (idx != 0):
-                general_frame['MA ' + str(idx)] = ma['MA']
+                general_frame['MA' + str(idx)] = ma['MA']
         
     print(general_frame)
-    general_frame.to_excel('D:\out_' + symbol + '_MA50_MA20_MA10_D1_frame.xlsx')
+    # general_frame.to_excel('D:\out_' + symbol + '_MA50_MA20_MA10_D1_frame.xlsx')
     # return general_frame
 
 
 # Стратегия подсвечивает сигналы при работе с индикатором MA50 на исторических данных
-def strategyMA50(symbol, frame):
-    frame['diff'] = pd.to_numeric(frame['close']) - pd.to_numeric(frame['MA'])
+def strategyMA50(frame):
+    print(frame)
+    frame['diff'] = pd.to_numeric(frame['close']) - pd.to_numeric(frame['MA1'])
     frame['trend'] = pd.Series(frame['diff']) > 0
 
     d = {True: 'UP', False: 'DOWN'}
@@ -111,59 +110,40 @@ def strategyMA50(symbol, frame):
     # если при растущем тренде цена выше MA открываем buy, если тренд наснижение и цена закрытия ниже MA sell
     
     frame['target'] = (pd.to_numeric(frame['diff']) < 50) & (-50 < pd.to_numeric(frame['diff']))
-    frame['day_next'] = frame['close'].shift(-1)
+    frame['close_shift_-1'] = frame['close'].shift(-1)
 
     # Ну вроде как ок. стоит зафиксировать!!!
     conditions = [
-        (frame['target'] == True) & (frame['trend'] == "UP") & (frame['day_next'] > frame['MA']),
-        (frame['target'] == True) & (frame['trend'] == "DOWN") & (frame['day_next'] < frame['MA'])]
+        (frame['target'] == True) & (frame['trend'] == "UP") & (frame['close_shift_-1'] > frame['MA1']),
+        (frame['target'] == True) & (frame['trend'] == "DOWN") & (frame['close_shift_-1'] < frame['MA1'])]
     chois = ["Open_buy", "Open_Sell"]
     frame['signal'] = np.select(conditions, chois, default="NaN")
 
-    #TODO: Поправить логику. А то в SL и TP весь фрэйм пишется.
-
-
-    # frame['take_profit'] = frame.where(frame['signal'] == "Open_buy") 
-    """
-    frame['take_profit'] = frame['signal'] == "Open_buy"
-    frame['stop_loss'] = frame['signal'] == "Open_buy"
-
-    tp_mask = {True: (frame['close'] * 1.05) , False: 'NaN'}
-    frame['take_profit'] = frame['take_profit'].map(tp_mask)
-
-    sl_mask = {True: (frame['close'] * 0.95) , False: 'NaN'}
-    frame['stop_loss'] = frame['stop_loss'].map(sl_mask)
-
-    frame['take_profit'] = frame['signal'] == "Open_Sell"
-    frame['stop_loss'] = frame['signal'] == "Open_Sell"
-
-    tp_mask = {True: (frame['close'] * 0.95) , False: 'NaN'}
-    frame['take_profit'] = frame['take_profit'].map(tp_mask)
-
-    sl_mask = {True: (frame['close'] * 1.05) , False: 'NaN'}
-    frame['stop_loss'] = frame['stop_loss'].map(sl_mask)
-    """
     #TODO: Пока не понятно как выходить из сделки. точнее как условия брать для выхода.
     # Обсуждались:
     #       1) SL, TP
     #       2) только SL
     #       3) трейлиинг стоп (или преследующий sl цену)
-    #       4) останавливаться на 5%
-    #       5) цены закрытия двух баров подряд ниже (если buy) выше (если sell) предыдущих
-    # 
+    #       4) останавливаться на 5% (или сколько то)
+    #       5) использовать линии Болинджера
     
-    frame['day_befor_1'] = frame['close'].shift(1)
-    frame['day_befor_2'] = frame['close'].shift(2)
-    frame['day_befor_3'] = frame['close'].shift(3)
-    
-    conditions = [
-        (frame['day_befor_1'] > frame['close']) & (frame['day_befor_2'] > frame['day_befor_1']) & (frame['day_befor_3'] > frame['day_befor_2']),
-        (frame['day_befor_1'] < frame['close']) & (frame['day_befor_2'] < frame['day_befor_1']) & (frame['day_befor_3'] < frame['day_befor_2'])]
-    chois = ["Close_buy", "Close_Sell"]
-    frame['close_signal'] = np.select(conditions, chois, default="NaN")
+    # frame.to_excel('D:\out_' + symbol + '_MA50_frame_signal.xlsx')
 
-    
-    frame.to_excel('D:\out_' + symbol + '_MA50_frame_signal.xlsx')
+    #TODO: выглядит не сложно. Надо попробовать https://habr.com/ru/articles/783384/
+def strategyBolingerLines(frame, period):
+    std = np.std(frame['close'][-period:], ddof=1)
+
+        # calculate Bollinger
+    frame['bb_high'] = frame['MA'] + 2 * std
+    frame['bb_low'] = frame['MA'] - 2 * std
+
+    frame['bb_high-p.close'] = frame['bb_high'] - frame['close']
+    frame['bb_low-p.close'] = frame['bb_low'] - frame['close']
+    frame['target_high_bb'] = (pd.to_numeric(frame['bb_high-p.close']) < 25) & (-25 < pd.to_numeric(frame['bb_high-p.close']))
+    frame['target_low_bb'] = (pd.to_numeric(frame['bb_low-p.close']) < 25) & (-25 < pd.to_numeric(frame['bb_low-p.close']))
+
+    frame.to_excel('D:\out_' + symbol + '_MA20_Bollinger20_frame_signal.xlsx')
+
 
 def startRobot():
     init_MT5()
@@ -172,21 +152,29 @@ def startRobot():
     # print(get_price())
     # Парсинг данных
     
-    """
+    """ 
     for symbol in symbols:
         print(symbol)
         selectSymbol(symbol)
         ma50 = moving_avarage(symbol, 50)
-        strategyMA50(symbol, ma50)
-    """
         # ma200 = moving_avarage(symbol, 200)
-    
+    """
         # Похоже это стоит пихать только в определенную стратегию т.к. поведение робота должно быть разным при разных скользящих средних
         # ma_analis(symbol, ma_list=(ma50, ma200))
-    print(symbol)
     selectSymbol(symbol)
+
+    # ma10 = moving_avarage(symbol, 10)
+    ma20 = moving_avarage(symbol, 20)
     ma50 = moving_avarage(symbol, 50)
-    strategyMA50(symbol, ma50)
+
+    ma_analis(symbol, ma_list=(ma20, ma50))
+    strategyMA50(ma50)
+    strategyBolingerLines(ma50, 20)
+    # print("MA10: " + str(ma10))
+    # print("MA20: " + str(ma20))
+    # print("MA100: " + str(ma100))
+    # print(symbol + " Prcie: " + str(get_price(symbol)))
+    # print(rates_frame)
 
 startRobot()
 # shut down connection to MetaTrader 5

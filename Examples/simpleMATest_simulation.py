@@ -13,15 +13,20 @@ import metatrader5EasyT
 from metatrader5EasyT import tick
 from metatrader5EasyT import timeframe
 from metatrader5EasyT import trade
-
+from indicators.ma import MA
+from models.order import Order
+"""
+Основная задача скрпта опрпделеять точки входа в сделку и выхода.
+На вход получаем минутный фрейм, будем подоватьт по строчно т.е. будут известны история этих данных и 
+чтобы принять решение об открытии позиции нужно подождать закрытия следующего бара.
+"""
 
 symbol="LKOH"
-# анные по 50 и 200 на Лукойл, Татнефть, Сбер, ВТБ, ммк, НЛМК, Северсталь, х5, магнит, Яндекс и озон
-# symbols = ("LKOH", "TATN", "SBER", "MAGN", "VTBR", "NLMK", "CHMF", "X5", "MGNT", "YDEX", "OZON")
-# Роснефть, Х5, Сургутнефтегаз, МТС, Ростелеком, Астра, М-Видео, Алроса, ГМК Норникель, ЭН+Групп
-# symbols = ("ROSN", "X5", "SNGS", "MTSS", "RTKM", "ASTR", "MVID", "ALRS", "GMKN", "ENPG")
+# данные по 50 и 200 на Лукойл, Татнефть, Сбер, ВТБ, ммк, НЛМК, Северсталь, х5, магнит, Яндекс и озон
+symbols = ("LKOH", "TATN", "SBER", "MAGN", "VTBR", "NLMK", "CHMF", "X5", "MGNT", "YDEX", "OZON")
 # rates_range = 700
-rates_range = 300
+rates_range = 100
+window = 50
 
 def init_MT5():
     # connect to MetaTrader 5
@@ -72,7 +77,7 @@ def moving_avarage(symbol, days_num):
     moving_avarages_list = moving_avarages.tolist()
     rates_frame['MA'] = moving_avarages_list
     rates_frame.dropna(inplace=True)
-    # return moving_avarages_list[window_size - 1:]
+    #return moving_avarages_list[window_size - 1:]
     return rates_frame
 
     # Получение торговых данных инструмента за рпеделенный промежуток
@@ -94,64 +99,38 @@ def ma_analis(symbol, ma_list):
                 general_frame['MA ' + str(idx)] = ma['MA']
         
     print(general_frame)
-    general_frame.to_excel('D:\out_' + symbol + '_MA50_MA20_MA10_D1_frame.xlsx')
+    general_frame.to_excel('D:\out_' + symbol + '_MA50_MA200_D1_frame.xlsx')
     # return general_frame
 
 
 # Стратегия подсвечивает сигналы при работе с индикатором MA50 на исторических данных
-def strategyMA50(symbol, frame):
-    frame['diff'] = pd.to_numeric(frame['close']) - pd.to_numeric(frame['MA'])
+def strategyMA50(ma):
+    frame = ma.get_MA_values()
+    frame['diff'] = pd.to_numeric(frame['close']) - pd.to_numeric(frame[ma.name])
     frame['trend'] = pd.Series(frame['diff']) > 0
 
+    mask = frame.applymap(type) != bool
     d = {True: 'UP', False: 'DOWN'}
-    frame['trend'] = frame['trend'].map(d)
+    frame = frame.where(mask, frame.replace(d))
+
 
     # TODO: Смысл такой находим максималььно близкиеи точки к MA (возможно проверяем цену открытия плюсом)
     # Добавляем в frame булевое значение true, после смотрим и\или жджем и смотрим следующую цену закрытия, 
     # если при растущем тренде цена выше MA открываем buy, если тренд наснижение и цена закрытия ниже MA sell
     
     frame['target'] = (pd.to_numeric(frame['diff']) < 50) & (-50 < pd.to_numeric(frame['diff']))
-    frame['day_next'] = frame['close'].shift(-1)
+    frame['target_day_befor_1'] = frame['target'].shift(1)
+    frame['close_day_befor_1'] = frame['close'].shift(1)
 
     # Ну вроде как ок. стоит зафиксировать!!!
     conditions = [
-        (frame['target'] == True) & (frame['trend'] == "UP") & (frame['day_next'] > frame['MA']),
-        (frame['target'] == True) & (frame['trend'] == "DOWN") & (frame['day_next'] < frame['MA'])]
-    chois = ["Open_buy", "Open_Sell"]
+        (frame['target_day_befor_1'] == True) & (frame['trend'] == "UP") & (frame['close_day_befor_1'] > frame[ma.name]),
+        (frame['target_day_befor_1'] == True) & (frame['trend'] == "DOWN") & (frame['close_day_befor_1'] < frame[ma.name])]
+    chois = ["Open_buy", "Open_sell"]
     frame['signal'] = np.select(conditions, chois, default="NaN")
 
-    #TODO: Поправить логику. А то в SL и TP весь фрэйм пишется.
 
-
-    # frame['take_profit'] = frame.where(frame['signal'] == "Open_buy") 
-    """
-    frame['take_profit'] = frame['signal'] == "Open_buy"
-    frame['stop_loss'] = frame['signal'] == "Open_buy"
-
-    tp_mask = {True: (frame['close'] * 1.05) , False: 'NaN'}
-    frame['take_profit'] = frame['take_profit'].map(tp_mask)
-
-    sl_mask = {True: (frame['close'] * 0.95) , False: 'NaN'}
-    frame['stop_loss'] = frame['stop_loss'].map(sl_mask)
-
-    frame['take_profit'] = frame['signal'] == "Open_Sell"
-    frame['stop_loss'] = frame['signal'] == "Open_Sell"
-
-    tp_mask = {True: (frame['close'] * 0.95) , False: 'NaN'}
-    frame['take_profit'] = frame['take_profit'].map(tp_mask)
-
-    sl_mask = {True: (frame['close'] * 1.05) , False: 'NaN'}
-    frame['stop_loss'] = frame['stop_loss'].map(sl_mask)
-    """
-    #TODO: Пока не понятно как выходить из сделки. точнее как условия брать для выхода.
-    # Обсуждались:
-    #       1) SL, TP
-    #       2) только SL
-    #       3) трейлиинг стоп (или преследующий sl цену)
-    #       4) останавливаться на 5%
-    #       5) цены закрытия двух баров подряд ниже (если buy) выше (если sell) предыдущих
-    # 
-    
+    # Выход из сделки сыровать пока. Дорабатывать надо.
     frame['day_befor_1'] = frame['close'].shift(1)
     frame['day_befor_2'] = frame['close'].shift(2)
     frame['day_befor_3'] = frame['close'].shift(3)
@@ -161,32 +140,68 @@ def strategyMA50(symbol, frame):
         (frame['day_befor_1'] < frame['close']) & (frame['day_befor_2'] < frame['day_befor_1']) & (frame['day_befor_3'] < frame['day_befor_2'])]
     chois = ["Close_buy", "Close_Sell"]
     frame['close_signal'] = np.select(conditions, chois, default="NaN")
-
     
-    frame.to_excel('D:\out_' + symbol + '_MA50_frame_signal.xlsx')
+    frame.to_excel('D:\out_' + symbol + '_MA50_frame_signal_test.xlsx')
 
 def startRobot():
     init_MT5()
     authorization()
     
-    # print(get_price())
-    # Парсинг данных
-    
-    """
-    for symbol in symbols:
-        print(symbol)
-        selectSymbol(symbol)
-        ma50 = moving_avarage(symbol, 50)
-        strategyMA50(symbol, ma50)
-    """
-        # ma200 = moving_avarage(symbol, 200)
-    
         # Похоже это стоит пихать только в определенную стратегию т.к. поведение робота должно быть разным при разных скользящих средних
         # ma_analis(symbol, ma_list=(ma50, ma200))
-    print(symbol)
+
+    # Сейчас используется для выгрузки данных за определенный переиод. Так ну по сути для посторения MA все равно нужны исторические данные
+    # Возможно все равно нужно первым делом исторические данные брать. Строить MA, а после сверять с плавающей ценой.
+    # Разница между MA и пока показала свою полезность - используем.
+
     selectSymbol(symbol)
-    ma50 = moving_avarage(symbol, 50)
-    strategyMA50(symbol, ma50)
+
+    frame = get_rates_frame(symbol, window)
+    ma50 = MA('MA50', frame, window) 
+    ma50.createMA()    
+    strategyMA50(ma50) # тут весь фрейм тащиться и анализируется, может его шринкануть? по сути нам нужны только 60-100 строк. Даже вероятно много...
+    while True:
+        if input() == "exit":
+            mt5.shutdown()
+            break
+
+        # TODO: Priority 1. Интересно, как лучше сделать делать перерасчет MA из текущей стоимости 
+        # или с периодичностью в timeframe выгружать историю и с новой свечой получать последнее значение? 
+        # Не уверено, что данная функция подойдет. Возможно нужна функция обновления фрейма.
+        
+
+        ma_last = np.array(ma50.get_MA_values()[ma50.name])[-1]
+        # trend = np.array(ma50.get_MA_values()['trend'])[-1]
+        signal = np.array(ma50.get_MA_values()['signal'])[-1]
+        close_signal = np.array(ma50.get_MA_values()['close_signal'])
+
+
+        current_price = get_price(symbol)
+
+        result = mt5.positions_get(symbol)
+        if len(result) == 0:
+            if current_price >= ma_last and signal == "Open_buy":
+                order_buy = Order(current_price, symbol)
+                # order_buy.position_open(True, False)
+                order_buy.fake_buy()
+        
+            if current_price <= ma_last and signal == "Open_sell":
+                order_sell = Order(current_price, symbol)
+                # order_buy.position_open(True, False)
+                order_sell.fake_sell()
+        else:
+            if close_signal == "Close_buy":
+                # order_buy.position_close()
+                order_buy.fake_buy_sell_close(current_price)
+                del order_buy
+
+            if close_signal == "Close_sell":
+                # order_sell.position_close() 
+                order_buy.fake_buy_sell_close(current_price)
+                del order_buy
+        
+
+        
 
 startRobot()
 # shut down connection to MetaTrader 5
