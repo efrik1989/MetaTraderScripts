@@ -1,5 +1,4 @@
 from datetime import datetime, timedelta
-import time
 import matplotlib.pyplot as plt
 import pandas as pd
 import logging
@@ -62,6 +61,28 @@ def get_history(symbol, timeframe, days_num):
     start_day_temp = date_now - timedelta(days=days_num + days_num)
     return mt5.copy_rates_range(symbol, timeframe, start_day_temp, date_now)
 
+def rsi(df, periods = 14, ema = True):
+    """
+    Возвращает pd.Series с индексом относительной силы.
+    """
+    close_delta = df['close'].diff()
+    # Делаем две серий: одну для низких закрытий и одну для высоких закрытий
+    up = close_delta.clip(lower=0)
+    down = -1 * close_delta.clip(upper=0)
+    
+    if ema == True:
+	# Использование экспоненциальной скользящей средней
+        ma_up = up.ewm(com = periods - 1, adjust=True, min_periods = periods).mean()
+        ma_down = down.ewm(com = periods - 1, adjust=True, min_periods = periods).mean()
+    else:
+        # Использование простой скользящей средней
+        ma_up = up.rolling(window = periods, adjust=False).mean()
+        ma_down = down.rolling(window = periods, adjust=False).mean()
+        
+    rsi = ma_up / ma_down
+    rsi = 100 - (100/(1 + rsi))
+    return rsi
+
 def moving_avarage(symbol, days_num):
     rates_frame = get_rates_frame(symbol, rates_range)
     close_pos_list = rates_frame['close']
@@ -98,9 +119,18 @@ def ma_analis(symbol, ma_list):
     general_frame.to_excel('D:\out_' + symbol + '_MA50_MA20_MA10_D1_frame.xlsx')
     # return general_frame
 
+    # Добавляем колоноку rsi к фрейму для анализа 
+def startegyRSI_close(frame, rsi_period):
+    frame['rsi'] = rsi(frame, rsi_period, True)
+    conditions = [
+        (frame['rsi'] > 70),
+        ((frame['rsi'] < 30))]
+    chois = ["Close_buy", "Close_Sell"]
+    frame['close_signal'] = np.select(conditions, chois, default="NaN")
 
 # Стратегия подсвечивает сигналы при работе с индикатором MA50 на исторических данных
 def strategyMA50(symbol, frame):
+    
     frame['diff'] = pd.to_numeric(frame['close']) - pd.to_numeric(frame['MA'])
     frame['trend'] = pd.Series(frame['diff']) > 0
 
@@ -157,13 +187,8 @@ def strategyMA50(symbol, frame):
     frame['day_befor_2'] = frame['close'].shift(2)
     frame['day_befor_3'] = frame['close'].shift(3)
     
-    conditions = [
-        (frame['day_befor_1'] > frame['close']) & (frame['day_befor_2'] > frame['day_befor_1']) & (frame['day_befor_3'] > frame['day_befor_2']),
-        (frame['day_befor_1'] < frame['close']) & (frame['day_befor_2'] < frame['day_befor_1']) & (frame['day_befor_3'] < frame['day_befor_2'])]
-    chois = ["Close_buy", "Close_Sell"]
-    frame['close_signal'] = np.select(conditions, chois, default="NaN")
+    startegyRSI_close(frame, 14)
 
-    
     frame.to_excel('D:\out_' + symbol + '_MA50_frame_Buy_Sell_signals.xlsx')
 
 def startRobot():

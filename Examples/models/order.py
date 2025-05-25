@@ -1,4 +1,6 @@
+import time
 import MetaTrader5 as mt5
+import logging
 from datetime import datetime
 from metatrader5EasyT import trade
 
@@ -15,24 +17,29 @@ class Order():
 
     # Запись в файл времени и теукщей цены
     def fake_buy(self):
-        output_file = open("simulation.txt", "w")
-        output_file.write(self.symbol + ", buy: " + self.open_price + ", " + datetime.timestamp() + "\n") 
+        logging.info("fake_buy()")
+        output_file = open("D:\Project_Robot\simulation.txt", "w")
+        output_file.write(self.symbol + ", buy: " + str(self.open_price) + ", " + str(time.asctime()) + "\n") 
         output_file.close()
 
     def fake_sell(self):
-        output_file = open("simulation.txt", "w")
-        output_file.write(self.symbol + ", sell: " + self.open_price + ", " + datetime.timestamp() + "\n")
+        logging.info("fake_sell()")
+        output_file = open("D:\Project_Robot\simulation.txt", "w")
+        output_file.write(self.symbol + ", sell: " + str(self.open_price) + ", " + str(time.asctime()) + "\n")
         output_file.close()
 
     def fake_buy_sell_close(self, current_price):
-        output_file = open("simulation.txt", "w")
-        output_file.write(self.symbol + ", close_position: " + current_price + ", " + datetime.timestamp() + "\n") 
+        logging.info("fake_close()")
+        output_file = open("D:\Project_Robot\simulation.txt", "w")
+        output_file.write(self.symbol + ", close_position: " + str(current_price) + ", " + str(time.asctime()) + "\n") 
         output_file.close()
 
     def position_open(self, buy: bool, sell: bool):
+        logging.info("position_open()")
         self.trade_obj.position_open(buy, sell)
 
     def position_close(self):
+        logging.info("position_close()")
         self.trade_obj.position_close()
     
     # TODO: реализовать трэйлинг стоп

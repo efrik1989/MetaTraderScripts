@@ -62,9 +62,15 @@ def startRobot():
     selectSymbol(symbol)
     
     # print(get_price())
-    rates = get_history(symbol, mt5.TIMEFRAME_H4, 15)
-    
-    print()
+    rates = get_history(symbol, mt5.TIMEFRAME_M1, 15)
+    rates_from_pos = mt5.copy_rates_from_pos(symbol, mt5.TIMEFRAME_M1, 0, 15)
+
+    print("=== Rates===")
+    print(rates)
+    print("=== Rates===")
+    print(rates_from_pos)
+
+
 
 startRobot()
 # shut down connection to MetaTrader 5
