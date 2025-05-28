@@ -31,3 +31,11 @@ class RSI():
         frame[self.name] = rsi
         logging.info("update_RSI_values(): Закончено обновление данных RSI.")
         return frame
+    
+    #Функция опрделения точки выходи из сделки
+    def startegyRSI_close(self, frame):
+        conditions = [
+            (frame[self.name] > 70),
+            ((frame[self.name] < 30))]
+        chois = ["Close_buy", "Close_Sell"]
+        frame['close_signal'] = np.select(conditions, chois, default="NaN")

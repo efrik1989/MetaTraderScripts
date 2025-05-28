@@ -19,6 +19,7 @@ class Order():
     def fake_buy(self):
         logging.info("fake_buy()")
         output_file = open("D:\Project_Robot\simulation.txt", "a")
+        #TODO: Уровни SL и TP захардкожены в этом классе. Нужно вынести в основной скрипт. А то это порно. конечно.
         output_file.write(self.symbol + ", buy: " + str(self.open_price) + ", SL: " + str(self.open_price - 100) 
                           + ", TP: " + str(self.open_price + 100) + ", " + str(time.asctime()) + "\n") 
         output_file.close()
