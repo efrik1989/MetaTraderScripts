@@ -31,7 +31,7 @@ symbol="LKOH"
 symbols = ("LKOH", "TATN", "SBER", "MAGN", "VTBR", "NLMK", "CHMF", "X5", "MGNT", "YDEX", "OZON")
 # Число баров для анализа
 # rates_range = 700
-rates_range = 300
+rates_range = 100
 # Период для индикаторов
 window = 50
 # Timeframe данных (графика)
@@ -76,9 +76,9 @@ def get_history(symbol, timeframe, days_num):
     return mt5.copy_rates_range(symbol, timeframe, start_day_temp, date_yesterday)
 
 # Получение торговых данных инструмента за рпеделенный промежуток
-def get_rates_frame(symbol, bars_count):
+def get_rates_frame(symbol, start_bar, bars_count):
     # rates = get_history(symbol, time_frame, days_num)
-    rates = mt5.copy_rates_from_pos(symbol, time_frame, 1, bars_count)
+    rates = mt5.copy_rates_from_pos(symbol, time_frame, start_bar, bars_count)
     if len(rates) == 0:
         logging.error("get_rates_frame(): Failed to get history data. " + str(mt5.last_error()))
     rates_frame = pd.DataFrame(rates)
@@ -109,9 +109,8 @@ def startegyRSI_close(columnName: str, frame):
     frame['close_signal'] = np.select(conditions, chois, default="NaN")
 
 # Стратегия подсвечивает сигналы при работе с индикатором MA50 на исторических данных
-def strategyMA50(ma, period):
+def strategyMA50(ma, frame, period):
     logging.info("strategyMA50(): start frame analis...")
-    frame = ma.get_MA_values(period)
     frame['diff'] = pd.to_numeric(frame['close']) - pd.to_numeric(frame[ma.name])
     frame['trend'] = pd.Series(frame['diff']) > 0
 
@@ -148,26 +147,30 @@ def strategyMA50(ma, period):
 
     logging.info("strategyMA50(): Analis complete.")
 
-def update_frame(frame, ma, rsi):
+def update_frame(frame: pd.DataFrame, ma, rsi):
+    if frame.empty:
+        logging.critical("update_frame(): Frame is empty!")
     last_rates = mt5.copy_rates_from_pos(symbol, time_frame, 1, 1)
     if not last_rates:
         logging.critical("update_frame(): Failed to get last rate: " + mt5.last_error())
-    last_rates_df = pd.DataFrame(last_rates , index=[frame.index[-1]])
+    
+    last_rates_df = pd.DataFrame(last_rates, index=[np.array(frame.index)[-1] + 1])
     
     last_bar_time = np.array(last_rates_df['time'])[-1]
-    last_bar_time_frame = np.array(ma.get_MA_values(10)['time'])[-1]
+    last_bar_time_frame = np.array(frame['time'].tail(1))[-1]
     print("Время Последнего бара текущего фрейма: " + str(last_bar_time_frame))
     print("Время последнего полученого рэйта: " + str(last_bar_time))
     if np.array(last_bar_time_frame < last_bar_time):
         frame = pd.concat([frame, last_rates_df], ignore_index=True)
-        # frame.loc[len(frame)] = last_rates
-        print(frame.tail(10))
-        ma.update_MA_values(frame)
-        rsi.update_RSI_values(frame)
-        strategyMA50(ma, "all")
+        frame = ma.update_MA_values(frame)
+        frame = rsi.update_RSI_values(frame)
+        strategyMA50(ma,frame, "all")
         startegyRSI_close(rsi.name, frame)
+        print(frame.tail(5))
         frame.to_excel('D:\Project_Robot\out_' + symbol + '_MA50_frame_signal_test.xlsx')
-        logging.info("update_frame(): Update complete. Frame in: D:\out_" + symbol + "_MA50_frame_signal_test.xlsx to manual analis.")
+        logging.info("update_frame(): Update complete. Frame in: D:\Project_Robot\out_" + symbol + "_MA50_frame_signal_test.xlsx to manual analis.")
+        return frame
+    return frame
 
 def startRobot():
     init_MT5()
@@ -182,12 +185,13 @@ def startRobot():
 
     selectSymbol(symbol)
 
-    frame = get_rates_frame(symbol, rates_range)
+    frame = get_rates_frame(symbol, 2, rates_range)
     ma50 = MA('MA50', frame, window) 
+    # TODO: Priority 2: Функцию createMA(): убрать надо ее может заменить update_MA_values(). Причем без последствий
     ma50.createMA()    
     rsi = RSI("RSI14", 14, True)
     rsi.update_RSI_values(frame)
-    strategyMA50(ma50, "all") # тут весь фрейм тащиться и анализируется, может его шринкануть? по сути нам нужны только 60-100 строк. Даже вероятно много...
+    strategyMA50(ma50, frame, "all") # тут весь фрейм тащиться и анализируется, может его шринкануть? по сути нам нужны только 60-100 строк. Даже вероятно много...
     startegyRSI_close(rsi.name, frame)
     frame.to_excel('D:\Project_Robot\out_' + symbol + '_MA50_frame_signal_test.xlsx')
     while True:
@@ -202,14 +206,15 @@ def startRobot():
         # Не уверено, что данная функция подойдет. Возможно нужна функция обновления фрейма.
 
         #TODO: Нужен метод, что будет обновлять последние значения frame-а а не перефигачивать весь каждый раз
-        update_frame(frame, ma50, rsi)
-        ma_last = np.array(ma50.get_MA_values(100)[ma50.name])[-1]
+
+        frame = update_frame(frame, ma50, rsi)
+        ma_last = np.array(frame[ma50.name])[-1]
         # trend = np.array(ma50.get_MA_values()['trend'])[-1]
-        signal = np.array(ma50.get_MA_values(100)['signal'])[-1]
+        signal = np.array(frame['signal'])[-1]
 
         if signal == "Open_buy" or signal == "Open_sell":
             logging.info("Signal to open position find: " + signal)
-        close_signal = np.array(ma50.get_MA_values(100)['close_signal'])[-1]
+        close_signal = np.array(frame['close_signal'])[-1]
         if close_signal == "Close_buy" or signal == "Close_buy":
             logging.info("Signal to close position find: " + close_signal)
 

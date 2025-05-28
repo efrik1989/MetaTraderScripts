@@ -26,7 +26,7 @@ class MA():
         moving_avarages = windows.mean()
         moving_avarages_list = moving_avarages.tolist()
         self.frame[self.name] = moving_avarages_list
-        self.frame.dropna(inplace=True)
+        # self.frame.dropna(inplace=True)
         # del self.frame['open']
         # Как я понял работа вся ведется в одном фрэйме. Это не проблема если индикатор 1. А что будет если несколько?
         # return moving_avarages_list[window_size - 1:]
@@ -46,7 +46,7 @@ class MA():
         moving_avarages = windows.mean()
         moving_avarages_list = moving_avarages.tolist()
         frame[self.name] = moving_avarages_list
-        frame.dropna(inplace=True)
+        # frame.dropna(inplace=True)
         # del self.frame['open']
         # del frame['spread']
         # del frame['high']
