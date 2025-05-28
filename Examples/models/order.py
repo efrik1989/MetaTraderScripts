@@ -18,19 +18,21 @@ class Order():
     # Запись в файл времени и теукщей цены
     def fake_buy(self):
         logging.info("fake_buy()")
-        output_file = open("D:\Project_Robot\simulation.txt", "w")
-        output_file.write(self.symbol + ", buy: " + str(self.open_price) + ", SL: " + str(self.open_price - 100) + ", TP: " + str(self.open_price + 100) + ", " + str(time.asctime()) + "\n") 
+        output_file = open("D:\Project_Robot\simulation.txt", "a")
+        output_file.write(self.symbol + ", buy: " + str(self.open_price) + ", SL: " + str(self.open_price - 100) 
+                          + ", TP: " + str(self.open_price + 100) + ", " + str(time.asctime()) + "\n") 
         output_file.close()
 
     def fake_sell(self):
         logging.info("fake_sell()")
-        output_file = open("D:\Project_Robot\simulation.txt", "w")
-        output_file.write(self.symbol + ", sell: " + str(self.open_price) + ", SL: " + str(self.open_price + 100) + ", TP: " + str(self.open_price - 100) + ", " + str(time.asctime()) + "\n")
+        output_file = open("D:\Project_Robot\simulation.txt", "a")
+        output_file.write(self.symbol + ", sell: " + str(self.open_price) + ", SL: " + str(self.open_price + 100) 
+                          + ", TP: " + str(self.open_price - 100) + ", " + str(time.asctime()) + "\n")
         output_file.close()
 
     def fake_buy_sell_close(self, current_price):
         logging.info("fake_close()")
-        output_file = open("D:\Project_Robot\simulation.txt", "w")
+        output_file = open("D:\Project_Robot\simulation.txt", "a")
         output_file.write(self.symbol + ", close_position: " + str(current_price) + ", " + str(time.asctime()) + "\n") 
         output_file.close()
 
