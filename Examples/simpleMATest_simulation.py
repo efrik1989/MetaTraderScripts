@@ -16,6 +16,7 @@ from metatrader5EasyT import timeframe
 from metatrader5EasyT import trade
 from indicators.ma import MA
 from indicators.rsi import RSI
+from indicators.atr import ATR
 from models.order import Order
 """
 Основная задача скрпта опрпделеять точки входа в сделку и выхода.
@@ -41,7 +42,7 @@ def init_MT5():
     if not mt5.initialize("C:\\Program Files\\FINAM MetaTrader 5\\terminal64.exe"):
         logging.critical("initialize(): failed")
     
-    # request connection status and parameters
+    # request connection status and parameters,0000
     # print(mt5.terminal_info())
     # get data on MetaTrader 5 version
     # print(mt5.version())
@@ -62,9 +63,9 @@ def selectSymbol(symbol):
     else:
         symbol_info=mt5.symbol_info(symbol)
         logging.info("selectSymbol(): " + str(symbol_info))
-# Получение цены
-def get_price(symbol):
-    tick_obj = tick.Tick(symbol)
+
+def get_price(tick_obj):
+        
     tick_obj.get_new_tick()
     return tick_obj.bid
 
@@ -81,7 +82,7 @@ def get_rates_frame(symbol, start_bar, bars_count):
 # Обновление данных для анализа и запуск самого анализа по индикаторам
 # Была мысль обезличить запускаемые методы просчета стратегии, но думаю не стоит. Во всяком случае пока...
 # TODO: Как минимум над этим нужно подумать.
-def update_frame(frame: pd.DataFrame, ma, rsi):
+def update_frame(frame: pd.DataFrame, ma, rsi, atr):
     try:
         if frame.empty:
             logging.critical("update_frame(): Frame is empty!")
@@ -99,6 +100,7 @@ def update_frame(frame: pd.DataFrame, ma, rsi):
             frame = pd.concat([frame, last_rates_df], ignore_index=True)
             frame = ma.update_MA_values(frame)
             frame = rsi.update_RSI_values(frame)
+            frame = atr.update_ATR_values(frame)
             ma.strategyMA50(frame)
             rsi.startegyRSI_close(frame)
             print(frame.tail(5))
@@ -118,11 +120,14 @@ def startRobot():
     # И для открытия\закрытия может быть не достаточно фиксированных цифер.
 
     selectSymbol(symbol)
-
+    tick_obj = tick.Tick(symbol)
     frame = get_rates_frame(symbol, 2, rates_range)
     ma50 = MA('MA50', window) 
     rsi = RSI("RSI14", 14, True)
+    atr = ATR("ATR", 14)
     frame.to_excel('D:\Project_Robot\out_' + symbol + '_MA50_frame_signal_test.xlsx')
+    order_sell = None
+    order_buy = None
     while True:
         time.sleep(1)
         # TODO: Priority:3 [general] Сделать корректный выход из утилиты.
@@ -131,41 +136,61 @@ def startRobot():
         #   logging.info("Exit from programm.")
         #    break
 
-        frame = update_frame(frame, ma50, rsi)
-        ma_last = np.array(frame[ma50.name])[-1]
+        frame = update_frame(frame, ma50, rsi, atr)
+        ma_last = np.array(pd.to_numeric(frame[ma50.name]))[-1]
+        
         signal = np.array(frame['signal'])[-1]
-
         if signal == "Open_buy" or signal == "Open_sell":
             logging.info("Signal to open position find: " + signal)
+
         close_signal = np.array(frame['close_signal'])[-1]
         if close_signal == "Close_buy" or signal == "Close_buy":
             logging.info("Signal to close position find: " + close_signal)
 
-        current_price = get_price(symbol)
-
-        result = pd.DataFrame(mt5.positions_get(symbol))
-
+        current_price = get_price(tick_obj)
+        atr_value = np.array(frame['ATR'])[-1]
+        # Для симуляции это не подходит...
+        # result = pd.DataFrame(mt5.positions_get(symbol))
+        # Версия проверки для симуляции
+        if (order_sell != None) or (order_buy != None):
+            result = 1
+        else:
+            result = 0 
         # TODO: Priority:1 [sim] Добавить логику сверки со значениями SL, TP для полноценной симуляции, с подсчетом прибыли и убытков.
         # TODO: Priority:2 [general] Описать индикатор ATR для установки значений SL
         # TODO: Priority:3 [general] Добавить запуск с параметрами.
-        # TODO: Priority:4 [general] Добавить много поточность. Каждый инструмент должен запупскаться в своем потоке.
-        if len(result) == 0:
+        # TODO: Priority:4 [general] Добавить многопоточность. Каждый инструмент должен запупскаться в своем потоке.
+
+        # TODO: Priority:1 [general] !!! Сигнал о покупке или продаже расчитывается на основе цены закрытия последнего бара. И пробои и касания ценой(хвостом свечи) не учитываются. Это стоит обдумать...
+        # Понаблюдал. анализ проводится на барах что уже прошли, но сделка открывается при пересечении MA. Думаю пока этого достаточно. Набллюдаем. 
+        # Боевой вариант if len(result) == 0:
+        # Для симуляции
+        if result == 0:
             if current_price >= ma_last and signal == "Open_buy":
-                order_buy = Order(current_price, symbol)
+                order_buy = Order(current_price, symbol, atr_value)
                 # order_buy.position_open(True, False)
+                
+                # Для Симуляции
                 order_buy.fake_buy()
+                take_profit = current_price + (atr_value * 2)
+                stop_loss = current_price - (atr_value * 2)
         
             if current_price <= ma_last and signal == "Open_sell":
-                order_sell = Order(current_price, symbol)
+                order_sell = Order(current_price, symbol, atr_value)
                 # order_buy.position_open(True, False)
+                
+                # Для Симуляции
                 order_sell.fake_sell()
+                take_profit = current_price + (atr_value * 2)
+                stop_loss = current_price - (atr_value * 2)
         else:
-            if close_signal == "Close_buy" and order_buy != None:
+            # Проверка на значений SL и TP не нужна для боевого робота. После симуляции удалить или закомментировать.
+            if (close_signal == "Close_buy" and order_buy != None) or (current_price == stop_loss or current_price == take_profit):
                 # order_buy.position_close()
                 order_buy.fake_buy_sell_close(current_price)
                 del order_buy
 
-            if close_signal == "Close_sell" and order_sell != None:
+            if (close_signal == "Close_sell" and order_sell != None) or (current_price == stop_loss or current_price == take_profit):
                 # order_sell.position_close() 
                 order_sell.fake_buy_sell_close(current_price)
                 del order_buy

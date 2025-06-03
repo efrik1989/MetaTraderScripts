@@ -47,7 +47,9 @@ class MA():
         # если при растущем тренде цена выше MA открываем buy, если тренд наснижение и цена закрытия ниже MA sell
 
         # В отдельную функцию вынести
-        frame['target'] = (pd.to_numeric(frame['diff']) < 5) & (-5 < pd.to_numeric(frame['diff']))
+        # TODO: Priority:1 Дернуть у Ромы формулу с делтой колебаний. Разброс захардкожен, для разных инструментов нужны разные цифры. 
+        # Возможно с отклонением в процентах будет более универсально.
+        frame['target'] = (pd.to_numeric(frame['diff']) < 50) & (-50 < pd.to_numeric(frame['diff']))
         frame['target_day_befor_1'] = frame['target'].shift(1)
         frame['close_day_befor_1'] = frame['close'].shift(1)
 

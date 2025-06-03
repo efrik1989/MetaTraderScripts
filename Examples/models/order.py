@@ -7,10 +7,11 @@ from metatrader5EasyT import trade
 # Класс отвечающий за описание ордера
 class Order():
 
-    def __init__(self, open_price, symbol):
+    def __init__(self, open_price, symbol, atr_value):
         self.open_price = open_price    # Цена открытия сделки.
         self.symbol = symbol
-        self.trade_obj = trade.Trade(symbol, 1.0, 100, 100)
+        self.trade_obj = trade.Trade(symbol, 1.0, atr_value * 2, atr_value * 2)
+        self.atr_value = atr_value
 
     def position_check(self):
         self.position_check()
@@ -20,15 +21,15 @@ class Order():
         logging.info("fake_buy()")
         output_file = open("D:\Project_Robot\simulation.txt", "a")
         #TODO: Уровни SL и TP захардкожены в этом классе. Нужно вынести в основной скрипт. А то это порно. конечно.
-        output_file.write(self.symbol + ", buy: " + str(self.open_price) + ", SL: " + str(self.open_price - 100) 
-                          + ", TP: " + str(self.open_price + 100) + ", " + str(time.asctime()) + "\n") 
+        output_file.write(self.symbol + ", buy: " + str(self.open_price) + ", SL: " + str(self.open_price - (self.atr_value * 2)) 
+                          + ", TP: " + str(self.open_price + (self.atr_value * 2)) + ", " + str(time.asctime()) + "\n") 
         output_file.close()
 
     def fake_sell(self):
         logging.info("fake_sell()")
         output_file = open("D:\Project_Robot\simulation.txt", "a")
-        output_file.write(self.symbol + ", sell: " + str(self.open_price) + ", SL: " + str(self.open_price + 100) 
-                          + ", TP: " + str(self.open_price - 100) + ", " + str(time.asctime()) + "\n")
+        output_file.write(self.symbol + ", sell: " + str(self.open_price) + ", SL: " + str(self.open_price + (self.atr_value * 2)) 
+                          + ", TP: " + str(self.open_price - (self.atr_value * 2)) + ", " + str(time.asctime()) + "\n")
         output_file.close()
 
     def fake_buy_sell_close(self, current_price):
