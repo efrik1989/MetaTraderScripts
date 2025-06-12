@@ -6,6 +6,7 @@ import logging
 from pandas.plotting import register_matplotlib_converters
 import pytz
 import numpy as np
+import argparse
 
 
 register_matplotlib_converters()
@@ -19,15 +20,24 @@ from indicators.rsi import RSI
 from indicators.atr import ATR
 from models.order import Order
 """
-Основная задача скрпта опрпделеять точки входа в сделку и выхода.
+Основная задача скрипта опрпделеять точки входа в сделку и выхода.
 На вход получаем минутный фрейм, будем подоватьт по строчно т.е. будут известны история этих данных и 
 чтобы принять решение об открытии позиции нужно подождать закрытия следующего бара.
 """
+parser = argparse.ArgumentParser()
+parser.add_argument("-s", "--symbol", help="List of instrument symbols.", action="store_true")
+parser.add_argument("-l", "--logfile", help="Logfile path.", action="store_true", default="D:\Project_Robot\everything.log")
+parser.add_argument("-r", "--range", help="Range of bar at first analis.", action="store_true", default=100)
+parser.add_argument("-t", "--timeframe", help="Timeframe of instrument grafic.", action="store_true")
+parser.add_argument("-i", "--indicators", help="List of indicators.", action="store_true")
+parser.add_argument("-a", "--account", help="Account number in Finam.", action="store_true")
+parser.add_argument("-p", "--password", help="Account password number in Finam.", action="store_true")
+
 log_file_path = "D:\Project_Robot\everything.log"
 logging.basicConfig(level=logging.INFO, filename=log_file_path, filemode="w", format="%(asctime)s %(levelname)s %(message)s")
 
-
-symbol="LKOH"
+# TODO: Сюда попка выносить параметры, что стоит указывать в аргументах при запуске, а не хардкодить.
+symbol="ROSN"
 # данные по 50 и 200 на Лукойл, Татнефть, Сбер, ВТБ, ммк, НЛМК, Северсталь, х5, магнит, Яндекс и озон
 # symbols = ("LKOH", "TATN", "SBER", "MAGN", "VTBR", "NLMK", "CHMF", "X5", "MGNT", "YDEX", "OZON")
 # Число баров для анализа
@@ -37,6 +47,9 @@ rates_range = 100
 window = 50
 # Timeframe данных (графика)
 time_frame = mt5.TIMEFRAME_M5
+
+
+
 def init_MT5():
     # connect to MetaTrader 5
     if not mt5.initialize("C:\\Program Files\\FINAM MetaTrader 5\\terminal64.exe"):
@@ -138,17 +151,12 @@ def startRobot():
 
         frame = update_frame(frame, ma50, rsi, atr)
         ma_last = np.array(pd.to_numeric(frame[ma50.name]))[-1]
-        
+         
         signal = np.array(frame['signal'])[-1]
-        if signal == "Open_buy" or signal == "Open_sell":
-            logging.info("Signal to open position find: " + signal)
-
         close_signal = np.array(frame['close_signal'])[-1]
-        if close_signal == "Close_buy" or signal == "Close_buy":
-            logging.info("Signal to close position find: " + close_signal)
 
         current_price = get_price(tick_obj)
-        atr_value = np.array(frame['ATR'])[-1]
+        atr_value = int(np.array(frame['ATR'])[-1] * 2)
         # Для симуляции это не подходит...
         # result = pd.DataFrame(mt5.positions_get(symbol))
         # Версия проверки для симуляции
@@ -156,10 +164,12 @@ def startRobot():
             result = 1
         else:
             result = 0 
-        # TODO: Priority:1 [sim] Добавить логику сверки со значениями SL, TP для полноценной симуляции, с подсчетом прибыли и убытков.
-        # TODO: Priority:2 [general] Описать индикатор ATR для установки значений SL
+        # TODO: Priority:1 [sim] Добавить логику сверки со значениями SL, TP для полноценной симуляции, с подсчетом прибыли и убытков. 
+        # Пока добавил закрытие сделки по SL или TP без подсчета.
+        
         # TODO: Priority:3 [general] Добавить запуск с параметрами.
-        # TODO: Priority:4 [general] Добавить многопоточность. Каждый инструмент должен запупскаться в своем потоке.
+        # TODO: Priority:4 [general] Добавить многопоточность. Каждый инструмент должен запупскаться в своем потоке. 
+        # Для этого нужно причесать MA для более точно определения входа в сделку.
 
         # TODO: Priority:1 [general] !!! Сигнал о покупке или продаже расчитывается на основе цены закрытия последнего бара. И пробои и касания ценой(хвостом свечи) не учитываются. Это стоит обдумать...
         # Понаблюдал. анализ проводится на барах что уже прошли, но сделка открывается при пересечении MA. Думаю пока этого достаточно. Набллюдаем. 
@@ -167,33 +177,51 @@ def startRobot():
         # Для симуляции
         if result == 0:
             if current_price >= ma_last and signal == "Open_buy":
+                logging.info("Signal to open position find: " + signal)
                 order_buy = Order(current_price, symbol, atr_value)
                 # order_buy.position_open(True, False)
                 
                 # Для Симуляции
                 order_buy.fake_buy()
-                take_profit = current_price + (atr_value * 2)
-                stop_loss = current_price - (atr_value * 2)
+                take_profit = current_price + (atr_value)
+                stop_loss = current_price - (atr_value)
         
             if current_price <= ma_last and signal == "Open_sell":
+                logging.info("Signal to open position find: " + signal)
                 order_sell = Order(current_price, symbol, atr_value)
                 # order_buy.position_open(True, False)
                 
                 # Для Симуляции
                 order_sell.fake_sell()
-                take_profit = current_price + (atr_value * 2)
-                stop_loss = current_price - (atr_value * 2)
+                take_profit = current_price + (atr_value)
+                stop_loss = current_price - (atr_value)
         else:
-            # Проверка на значений SL и TP не нужна для боевого робота. После симуляции удалить или закомментировать.
-            if (close_signal == "Close_buy" and order_buy != None) or (current_price == stop_loss or current_price == take_profit):
+            
+            if (close_signal == "Close_buy" and order_buy != None):
+                logging.info("Signal to close position find: " + close_signal)
                 # order_buy.position_close()
                 order_buy.fake_buy_sell_close(current_price)
                 del order_buy
 
-            if (close_signal == "Close_sell" and order_sell != None) or (current_price == stop_loss or current_price == take_profit):
+            if (close_signal == "Close_sell" and order_sell != None):
+                logging.info("Signal to close position find: " + close_signal)
                 # order_sell.position_close() 
                 order_sell.fake_buy_sell_close(current_price)
                 del order_buy
+            
+            # Проверка на значений SL и TP не нужна для боевого робота. После симуляции удалить или закомментировать.
+            if (type(order_buy) == Order) or (type(order_sell) == Order):
+                if (order_buy != None and (current_price >= take_profit or current_price <= stop_loss )):
+                    logging.info("Signal to close position find: SLTP")
+                    # order_buy.position_close()
+                    order_buy.fake_buy_sell_close(current_price)
+                    del order_buy
+
+                if (order_sell != None and (current_price <= take_profit or current_price >= stop_loss )):
+                    logging.info("Signal to close position find: SLTP")
+                    # order_sell.position_close() 
+                    order_sell.fake_buy_sell_close(current_price)
+                    del order_buy
         
         
         

@@ -42,30 +42,38 @@ class MA():
         d = {True: 'UP', False: 'DOWN'}
         frame['trend'] = frame['trend'].map(d)
 
-        # TODO: Смысл такой находим максималььно близкиеи точки к MA (возможно проверяем цену открытия плюсом)
-        # Добавляем в frame булевое значение true, после смотрим и\или жджем и смотрим следующую цену закрытия, 
-        # если при растущем тренде цена выше MA открываем buy, если тренд наснижение и цена закрытия ниже MA sell
-
         # В отдельную функцию вынести
-        # TODO: Priority:1 Дернуть у Ромы формулу с делтой колебаний. Разброс захардкожен, для разных инструментов нужны разные цифры. 
-        # Возможно с отклонением в процентах будет более универсально.
-        frame['target'] = (pd.to_numeric(frame['diff']) < 50) & (-50 < pd.to_numeric(frame['diff']))
+        # frame['target'] = (pd.to_numeric(frame['diff']) < frame['close'] / 100) & ( - frame['close'] / 100 < pd.to_numeric(frame['diff']))
+        frame['target'] = (pd.to_numeric(frame['low']) < frame[self.name]) & ( frame[self.name]< pd.to_numeric(frame['high']))
+        # Трагет вчерашнего бара, позовчерашнего и т.д. 
         frame['target_day_befor_1'] = frame['target'].shift(1)
+        frame['target_day_befor_2'] = frame['target'].shift(2)
+        # frame['target_day_befor_3'] = frame['target'].shift(3)
+        
+        # Цена закрытия вчерашнего бара, позовчерашнего и тд.
         frame['close_day_befor_1'] = frame['close'].shift(1)
+        # frame['close_day_befor_2'] = frame['close'].shift(2)
+        # frame['close_day_befor_3'] = frame['close'].shift(3)
+        
+        # Цена открытия вчерашнего бара, позовчерашнего и тд
+        frame['open_day_befor_1'] = frame['open'].shift(1)
+        # frame['open_day_befor_2'] = frame['open'].shift(2)
+        # frame['open_day_befor_3'] = frame['open'].shift(3)
 
         # Ну вроде как ок. стоит зафиксировать!!!
+        # Логика такая: Прокол т.е. (low < MA < high), затем следующий бар выше MA, и цена закрытия выше цены открытия если trend == UP 
+        # и наоборот если DOWN, тогда кидаем сигнал на открытие сделки  
         conditions = [
-            (frame['target_day_befor_1'] == True) & (frame['trend'] == "UP") & (frame['close_day_befor_1'] > frame[self.name]),
-            (frame['target_day_befor_1'] == True) & (frame['trend'] == "DOWN") & (frame['close_day_befor_1'] < frame[self.name])]
+            (frame['target_day_befor_2'] == True) & (frame['trend'] == "UP") & (frame['close_day_befor_1'] > frame[self.name]) 
+                & (frame['open_day_befor_1'] < frame['close_day_befor_1']),
+            (frame['target_day_befor_2'] == True) & (frame['trend'] == "DOWN") & (frame['close_day_befor_1'] < frame[self.name]) 
+                & (frame['open_day_befor_1'] > frame['close_day_befor_1'])]
         chois = ["Open_buy", "Open_sell"]
         frame['signal'] = np.select(conditions, chois, default="NaN")
 
 
         # Выход из сделки сыровать пока. Дорабатывать надо. Можно в отдельную функцию выделить.
-        frame['day_befor_1'] = frame['close'].shift(1)
-        frame['day_befor_2'] = frame['close'].shift(2)
-        frame['day_befor_3'] = frame['close'].shift(3)
-        
+        # Для выхода из сделки нужно что-то другое. Стратегия на MA50 не видит оптималььного выхода из сделок.
         # conditions = [
         #    (frame['day_befor_1'] > frame['close']) & (frame['day_befor_2'] > frame['day_befor_1']) & (frame['day_befor_3'] > frame['day_befor_2']),
         #    (frame['day_befor_1'] < frame['close']) & (frame['day_befor_2'] < frame['day_befor_1']) & (frame['day_befor_3'] < frame['day_befor_2'])]
