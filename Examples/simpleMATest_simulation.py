@@ -4,17 +4,14 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import logging
 from pandas.plotting import register_matplotlib_converters
-import pytz
 import numpy as np
 import argparse
+import threading
 
 
 register_matplotlib_converters()
 import MetaTrader5 as mt5
-import metatrader5EasyT
 from metatrader5EasyT import tick
-from metatrader5EasyT import timeframe
-from metatrader5EasyT import trade
 from indicators.ma import MA
 from indicators.rsi import RSI
 from indicators.atr import ATR
@@ -37,7 +34,7 @@ log_file_path = "D:\Project_Robot\everything.log"
 logging.basicConfig(level=logging.INFO, filename=log_file_path, filemode="w", format="%(asctime)s %(levelname)s %(message)s")
 
 # TODO: Сюда попка выносить параметры, что стоит указывать в аргументах при запуске, а не хардкодить.
-symbol="ROSN"
+symbol="YDEX"
 # данные по 50 и 200 на Лукойл, Татнефть, Сбер, ВТБ, ммк, НЛМК, Северсталь, х5, магнит, Яндекс и озон
 # symbols = ("LKOH", "TATN", "SBER", "MAGN", "VTBR", "NLMK", "CHMF", "X5", "MGNT", "YDEX", "OZON")
 # Число баров для анализа
@@ -93,8 +90,8 @@ def get_rates_frame(symbol, start_bar, bars_count):
     return rates_frame
 
 # Обновление данных для анализа и запуск самого анализа по индикаторам
-# Была мысль обезличить запускаемые методы просчета стратегии, но думаю не стоит. Во всяком случае пока...
-# TODO: Как минимум над этим нужно подумать.
+# TODO: Была мысль обезличить запускаемые методы просчета стратегии, но думаю не стоит. Во всяком случае пока...
+# Как минимум над этим нужно подумать.
 def update_frame(frame: pd.DataFrame, ma, rsi, atr):
     try:
         if frame.empty:
@@ -131,6 +128,7 @@ def startRobot():
     
     # Разница между MA и пока показала свою полезность - используем. Возможно стоит в проценты перевести, а буфер для открытия сделки может быть разным. 
     # И для открытия\закрытия может быть не достаточно фиксированных цифер.
+    
 
     selectSymbol(symbol)
     tick_obj = tick.Tick(symbol)
@@ -138,12 +136,12 @@ def startRobot():
     ma50 = MA('MA50', window) 
     rsi = RSI("RSI14", 14, True)
     atr = ATR("ATR", 14)
-    frame.to_excel('D:\Project_Robot\out_' + symbol + '_MA50_frame_signal_test.xlsx')
     order_sell = None
     order_buy = None
     while True:
         time.sleep(1)
-        # TODO: Priority:3 [general] Сделать корректный выход из утилиты.
+        # TODO: Priority:3 [general] Сделать корректный выход из утилиты. Возможно получиться сделать прослушку клавиатуры асинхронной, 
+        # чтобы она не блочила всю остальную программу
         # if input() == "exit":
         #    mt5.shutdown()
         #   logging.info("Exit from programm.")
@@ -157,6 +155,13 @@ def startRobot():
 
         current_price = get_price(tick_obj)
         atr_value = int(np.array(frame['ATR'])[-1] * 2)
+        
+        # TODO: Priority:3 [general] Добавить запуск с параметрами.
+        # TODO: Priority:4 [general] Добавить многопоточность. Каждый инструмент должен запупскаться в своем потоке. 
+
+        # TODO: Priority:1 [general] !!! Сигнал о покупке или продаже расчитывается на основе цены закрытия последнего бара. И пробои и касания ценой(хвостом свечи) не учитываются. Это стоит обдумать...
+        # Понаблюдал. анализ проводится на барах что уже прошли, но сделка открывается при пересечении MA. Думаю пока этого достаточно. Набллюдаем. 
+        
         # Для симуляции это не подходит...
         # result = pd.DataFrame(mt5.positions_get(symbol))
         # Версия проверки для симуляции
@@ -164,15 +169,6 @@ def startRobot():
             result = 1
         else:
             result = 0 
-        # TODO: Priority:1 [sim] Добавить логику сверки со значениями SL, TP для полноценной симуляции, с подсчетом прибыли и убытков. 
-        # Пока добавил закрытие сделки по SL или TP без подсчета.
-        
-        # TODO: Priority:3 [general] Добавить запуск с параметрами.
-        # TODO: Priority:4 [general] Добавить многопоточность. Каждый инструмент должен запупскаться в своем потоке. 
-        # Для этого нужно причесать MA для более точно определения входа в сделку.
-
-        # TODO: Priority:1 [general] !!! Сигнал о покупке или продаже расчитывается на основе цены закрытия последнего бара. И пробои и касания ценой(хвостом свечи) не учитываются. Это стоит обдумать...
-        # Понаблюдал. анализ проводится на барах что уже прошли, но сделка открывается при пересечении MA. Думаю пока этого достаточно. Набллюдаем. 
         # Боевой вариант if len(result) == 0:
         # Для симуляции
         if result == 0:

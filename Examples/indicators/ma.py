@@ -64,10 +64,10 @@ class MA():
         # Логика такая: Прокол т.е. (low < MA < high), затем следующий бар выше MA, и цена закрытия выше цены открытия если trend == UP 
         # и наоборот если DOWN, тогда кидаем сигнал на открытие сделки  
         conditions = [
-            (frame['target_day_befor_2'] == True) & (frame['trend'] == "UP") & (frame['close_day_befor_1'] > frame[self.name]) 
-                & (frame['open_day_befor_1'] < frame['close_day_befor_1']),
-            (frame['target_day_befor_2'] == True) & (frame['trend'] == "DOWN") & (frame['close_day_befor_1'] < frame[self.name]) 
-                & (frame['open_day_befor_1'] > frame['close_day_befor_1'])]
+            (frame['target_day_befor_1'] == True) & (frame['trend'] == "UP") & (frame['close'] > frame[self.name]) 
+                & (frame['open'] < frame['close']),
+            (frame['target_day_befor_1'] == True) & (frame['trend'] == "DOWN") & (frame['close'] < frame[self.name]) 
+                & (frame['open'] > frame['close'])]
         chois = ["Open_buy", "Open_sell"]
         frame['signal'] = np.select(conditions, chois, default="NaN")
 
