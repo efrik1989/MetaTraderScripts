@@ -38,5 +38,4 @@ class ATR():
 
     def update_ATR_values (self, frame):
         frame = self.calculate_atr(frame, atr_type='rma')
-        print(frame)
         return frame
