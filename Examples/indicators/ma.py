@@ -37,17 +37,20 @@ class MA():
     def strategyMA50(self, frame):
         logging.info("strategyMA50(): start frame analis...")
         frame['diff'] = pd.to_numeric(frame['close']) - pd.to_numeric(frame[self.name])
+        # TODO: Priority: 1 [general] Определение тренда хромает. Для направления сделки этого маловато. Нужно расчитать вектор, куда идет тренд.
         frame['trend'] = pd.Series(frame['diff']) > 0
+        frame['MA_day_befor3'] = frame[self.name].shift(3)
+        frame['MA_trend'] = np.array(frame[self.name]) > np.array(frame['MA_day_befor3'])
 
         d = {True: 'UP', False: 'DOWN'}
         frame['trend'] = frame['trend'].map(d)
+        frame['MA_trend'] = frame['MA_trend'].map(d)
 
         # В отдельную функцию вынести
-        # frame['target'] = (pd.to_numeric(frame['diff']) < frame['close'] / 100) & ( - frame['close'] / 100 < pd.to_numeric(frame['diff']))
         frame['target'] = (pd.to_numeric(frame['low']) < frame[self.name]) & ( frame[self.name]< pd.to_numeric(frame['high']))
         # Трагет вчерашнего бара, позовчерашнего и т.д. 
         frame['target_day_befor_1'] = frame['target'].shift(1)
-        frame['target_day_befor_2'] = frame['target'].shift(2)
+        # frame['target_day_befor_2'] = frame['target'].shift(2)
         # frame['target_day_befor_3'] = frame['target'].shift(3)
         
         # Цена закрытия вчерашнего бара, позовчерашнего и тд.
@@ -61,23 +64,16 @@ class MA():
         # frame['open_day_befor_3'] = frame['open'].shift(3)
 
         # Ну вроде как ок. стоит зафиксировать!!!
-        # Логика такая: Прокол т.е. (low < MA < high), затем следующий бар выше MA, и цена закрытия выше цены открытия если trend == UP 
-        # и наоборот если DOWN, тогда кидаем сигнал на открытие сделки  
+        # Логика такая: Прокол т.е. (low < MA < high), затем следующий бар выше MA, и цена закрытия выше цены открытия если trend == UP и MA_trend == UP 
+        # и наоборот если DOWN, тогда кидаем сигнал на открытие сделки 
+        # trend - показывает цена ниже или выше MA
+        # MA_trend - показывает направление тренда. без учетта консолидации к сожалению.
         conditions = [
-            (frame['target_day_befor_1'] == True) & (frame['trend'] == "UP") & (frame['close'] > frame[self.name]) 
+            (frame['target_day_befor_1'] == True) & (frame['trend'] == "UP") & (frame['MA_trend'] == "UP") & (frame['close'] > frame[self.name]) 
                 & (frame['open'] < frame['close']),
-            (frame['target_day_befor_1'] == True) & (frame['trend'] == "DOWN") & (frame['close'] < frame[self.name]) 
+            (frame['target_day_befor_1'] == True) & (frame['trend'] == "DOWN") & (frame['MA_trend'] == "DOWN") & (frame['close'] < frame[self.name]) 
                 & (frame['open'] > frame['close'])]
         chois = ["Open_buy", "Open_sell"]
         frame['signal'] = np.select(conditions, chois, default="NaN")
-
-
-        # Выход из сделки сыровать пока. Дорабатывать надо. Можно в отдельную функцию выделить.
-        # Для выхода из сделки нужно что-то другое. Стратегия на MA50 не видит оптималььного выхода из сделок.
-        # conditions = [
-        #    (frame['day_befor_1'] > frame['close']) & (frame['day_befor_2'] > frame['day_befor_1']) & (frame['day_befor_3'] > frame['day_befor_2']),
-        #    (frame['day_befor_1'] < frame['close']) & (frame['day_befor_2'] < frame['day_befor_1']) & (frame['day_befor_3'] < frame['day_befor_2'])]
-        # chois = ["Close_buy", "Close_Sell"]
-        # frame['close_signal'] = np.select(conditions, chois, default="NaN")
 
         logging.info("strategyMA50(): Analis complete.")

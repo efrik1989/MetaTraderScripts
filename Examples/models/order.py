@@ -22,7 +22,7 @@ class Order():
         logging.info("fake_buy()")
         self.isBuy = True
         output_file = open("D:\Project_Robot\simulation.txt", "a")
-        output_file.write(self.symbol + ", buy: " + str(self.open_price) + ", SL: " + str(self.open_price - (self.atr_value * 2)) 
+        output_file.write(self.symbol + ", buy: " + str(self.open_price) + ", SL: " + str(self.open_price - (self.atr_value)) 
                           + ", TP: " + str(self.open_price + (self.atr_value)) + ", " + str(time.asctime()) + "\n") 
         output_file.close()
 
@@ -30,7 +30,7 @@ class Order():
         logging.info("fake_sell()")
         self.isBuy = False
         output_file = open("D:\Project_Robot\simulation.txt", "a")
-        output_file.write(self.symbol + ", sell: " + str(self.open_price) + ", SL: " + str(self.open_price + (self.atr_value * 2)) 
+        output_file.write(self.symbol + ", sell: " + str(self.open_price) + ", SL: " + str(self.open_price + (self.atr_value)) 
                           + ", TP: " + str(self.open_price - (self.atr_value)) + ", " + str(time.asctime()) + "\n")
         output_file.close()
 
