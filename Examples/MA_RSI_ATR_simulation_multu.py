@@ -24,7 +24,8 @@ from models.order import Order
 чтобы принять решение об открытии позиции нужно подождать закрытия следующего бара.
 """
 parser = argparse.ArgumentParser()
-parser.add_argument("-s", "--symbols", help="List of instrument symbols.", action="append", default=[] )
+# Символы по умолчанию: "LKOH", "TATN", "SBER", "MAGN", "VTBR", "NLMK", "CHMF", "X5", "MGNT", "YDEX", "OZON"
+parser.add_argument("-s", "--symbols", help="List of instrument symbols. Default: 'LKOH', 'TATN', 'SBER', 'MAGN', 'VTBR', 'NLMK', 'CHMF', 'X5', 'MGNT', 'YDEX', 'OZON'", nargs="+", action="store", default=["LKOH", "TATN", "SBER", "MAGN", "VTBR", "NLMK", "CHMF", "X5", "MGNT", "YDEX", "OZON"] )
 parser.add_argument("-l", "--logfile", help="Logfile path.", action="store_true", default="D:\Project_Robot\everything.log")
 parser.add_argument("-r", "--range", help="Range of bar at first analis.", action="store_true", default=100)
 parser.add_argument("-t", "--timeframe", help="Timeframe of instrument grafic.", action="store_true", default=mt5.TIMEFRAME_M5)
@@ -37,16 +38,10 @@ args = parser.parse_args()
 # log_file_path = "D:\Project_Robot\everything.log"
 logging.basicConfig(level=logging.INFO, filename=args.logfile, filemode="w", format="%(asctime)s %(levelname)s %(message)s")
 
-# TODO: Сюда попка выносить параметры, что стоит указывать в аргументах при запуске, а не хардкодить.
-# symbol="YDEX"
-# данные по 50 и 200 на Лукойл, Татнефть, Сбер, ВТБ, ммк, НЛМК, Северсталь, х5, магнит, Яндекс и озон
-symbols = ("LKOH", "TATN", "SBER", "MAGN", "VTBR", "NLMK", "CHMF", "X5", "MGNT", "YDEX", "OZON")
-# symbols = ("LKOH", "NLMK")
-# Число баров для анализа
-# rates_range = 700
-# rates_range = 100
+# TODO: Сюда пока выносить параметры, что стоит указывать в аргументах при запуске, а не хардкодить.
 # Период для индикаторов
 window = 50
+threads_stop = False
 # Timeframe данных (графика)
 # time_frame = mt5.TIMEFRAME_M5
 
@@ -79,8 +74,7 @@ def selectSymbol(symbol):
         # symbol_info=mt5.symbol_info(symbol)
         logging.info("selectSymbol(): " + str(symbol))
 
-def get_price(tick_obj):
-        
+def get_price(tick_obj):        
     tick_obj.get_new_tick()
     return tick_obj.bid
 
@@ -135,12 +129,6 @@ def lets_trade(symbol):
     order_buy = None
     while True:
         time.sleep(1)
-        # TODO: Priority:3 [general] Сделать корректный выход из утилиты. Возможно получиться сделать прослушку клавиатуры асинхронной, 
-        # чтобы она не блочила всю остальную программу
-        # if input() == "exit":
-        #    mt5.shutdown()
-        #   logging.info("Exit from programm.")
-        #    break
 
         frame = update_frame(symbol, frame, ma50, rsi, atr)
         ma_last = np.array(pd.to_numeric(frame[ma50.name]))[-1]
@@ -157,7 +145,7 @@ def lets_trade(symbol):
         # Для симуляции это не подходит...
         # result = pd.DataFrame(mt5.positions_get(symbol))
         # Версия проверки для симуляции
-        if (order_sell != None) or (order_buy != None):
+        if (type(order_buy) == Order) or (type(order_sell) == Order):
             result = 1
         else:
             result = 0 
@@ -186,58 +174,59 @@ def lets_trade(symbol):
                     stop_loss = current_price - (atr_value)
             else:
                 
-                if (close_signal == "Close_buy" and order_buy != None):
+                
+                if type(order_buy) == Order and close_signal == "Close_buy":
                     logging.info(str(symbol) + ": Signal to close position find: " + close_signal)
                     # order_buy.position_close()
                     order_buy.fake_buy_sell_close(current_price)
-                    del order_buy
+                    order_buy = None
 
-                if (close_signal == "Close_sell" and order_sell != None):
+                if (type(order_sell) == Order and close_signal == "Close_sell"):
                     logging.info(str(symbol) + ": Signal to close position find: " + close_signal)
                     # order_sell.position_close() 
                     order_sell.fake_buy_sell_close(current_price)
-                    del order_buy
+                    order_buy = None
                 
                 # Проверка на значений SL и TP не нужна для боевого робота. После симуляции удалить или закомментировать.
-                # По какой-то причине, если момент запупска робота поподает на момент сигнала к продаже или SLTP с предыдущего бара.
-                # Вакханалия какая-то твориться и ошибок сыпиться еб твою мать. Он пытается закрыть сделку которой нет. С этим надо разобраться до прода.
-                if (order_buy != None and ((type(order_buy) == Order) or (type(order_sell) == Order))):
-                    if (order_buy != None and (current_price >= take_profit or current_price <= stop_loss )):
-                        logging.info(str(symbol) + ": Signal to close position find: SLTP")
-                        # order_buy.position_close()
-                        order_buy.fake_buy_sell_close(current_price)
-                        del order_buy
+                # Надо разобраться по какой-то причине по SLTP сделки не завершаются.
+                
+                if (type(order_buy) == Order and (current_price >= take_profit or current_price <= stop_loss )):
+                    logging.info(str(symbol) + ": Signal to close position find: SLTP")
+                    # order_buy.position_close()
+                    order_buy.fake_buy_sell_close(current_price)
+                    order_buy = None
 
-                    if (order_sell != None and (current_price <= take_profit or current_price >= stop_loss )):
-                        logging.info(str(symbol) + ": Signal to close position find: SLTP")
-                        # order_sell.position_close() 
-                        order_sell.fake_buy_sell_close(current_price)
-                        del order_buy
+                if (type(order_sell) == Order and (current_price <= take_profit or current_price >= stop_loss )):
+                    logging.info(str(symbol) + ": Signal to close position find: SLTP")
+                    # order_sell.position_close() 
+                    order_sell.fake_buy_sell_close(current_price)
+                    order_buy = None
         except(UnboundLocalError):
-            logging.critical(symbol + ": lets_trade(): Переменная или объект не в том месте.!!!\n" + traceback.format_exc())
+            logging.exception(str(symbol) + ": lets_trade(): Переменная или объект не в том месте.!!!")
 
 def startRobot():
     init_MT5()
     authorization()
     
-    if len(symbols) != 0:
-        logging.info("Symbols lenght: " + str(len(symbols)))
-        for symbol in symbols:
+    if len(args.symbols) != 0:
+        logging.info("Symbols lenght: " + str(len(args.symbols)))
+        for symbol in args.symbols:
             logging.info(str(symbol) + ": start()")
             thread=threading.Thread(target=lets_trade, args=(symbol,), daemon=True)
             thread.start()
     # TODO: Priority: 3 [general] Добавить "Уровень риска". Процент от общего счета который может использовать робот. 
     # TODO: Priority: 3 [general] И предохранитель, если баланс опустил на n-% от максимального кидаем ошибку и останавливаемся.
+    print("Posible commands:")
+    print("exit - exit from programm")
+    print("Please enter command:")
     while True:
-        print("Posible commands:")
-        print("exit - exit from programm")
-        print("Please enter command:")
         command = input()
         if command == "exit":
-            mt5.shutdown()
             logging.info("Exit from programm.")
-            sys.exit
+            break
+            
 
 startRobot()
 # shut down connection to MetaTrader 5
 mt5.shutdown()
+sys.exit
