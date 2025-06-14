@@ -18,24 +18,45 @@ from indicators.ma import MA
 from indicators.rsi import RSI
 from indicators.atr import ATR
 from models.order import Order
+from models.timframe_enum import Timeframe
 """
 Основная задача скрипта опрпделеять точки входа в сделку и выхода.
 На вход получаем минутный фрейм, будем подоватьт по строчно т.е. будут известны история этих данных и 
 чтобы принять решение об открытии позиции нужно подождать закрытия следующего бара.
 """
+
+# TODO: Prioroty: 4 [general] Возможно стоит парсер аргументов в отдельный класс вынести...
+# TODO: Prioroty: 2 [general] Не все аргумены сделал. Точнее не все работает. нужно будетс этим разобраться.
+# TODO: Priority: 1 [general] Обложить все юнит тестами
 parser = argparse.ArgumentParser()
 # Символы по умолчанию: "LKOH", "TATN", "SBER", "MAGN", "VTBR", "NLMK", "CHMF", "X5", "MGNT", "YDEX", "OZON"
-parser.add_argument("-s", "--symbols", help="List of instrument symbols. Default: 'LKOH', 'TATN', 'SBER', 'MAGN', 'VTBR', 'NLMK', 'CHMF', 'X5', 'MGNT', 'YDEX', 'OZON'", nargs="+", action="store", default=["LKOH", "TATN", "SBER", "MAGN", "VTBR", "NLMK", "CHMF", "X5", "MGNT", "YDEX", "OZON"] )
-parser.add_argument("-l", "--logfile", help="Logfile path.", action="store_true", default="D:\Project_Robot\everything.log")
-parser.add_argument("-r", "--range", help="Range of bar at first analis.", action="store_true", default=100)
-parser.add_argument("-t", "--timeframe", help="Timeframe of instrument grafic.", action="store_true", default=mt5.TIMEFRAME_M5)
+parser.add_argument("-s", "--symbols", help="List of instrument symbols. Enter like a strings list(Example: 'LKOH' 'TATN')\n" \
+" Default: 'LKOH', 'TATN', 'SBER', 'MAGN', 'VTBR', 'NLMK', 'CHMF', 'X5', 'MGNT', 'YDEX', 'OZON'", nargs="+", action="store", default=["LKOH", "TATN", "SBER", "MAGN", "VTBR", "NLMK", "CHMF", "X5", "MGNT", "YDEX", "OZON"] )
+parser.add_argument("-l", "--logfile", help="Logfile path. Default: 'D:\Project_Robot\everything.log'", action="store", default="D:\Project_Robot\everything.log")
+parser.add_argument("-r", "--range", help="Range of bar at first analis.", action="store", default=100)
+parser.add_argument("-t", "--timeframe", help="Timeframe of instrument grafic. Default: 'M5' (5 minuts).\n" \
+    " Posible values:\n" \
+    " M5 - 5 minutes,\n" \
+    " M10 - 10 minutes,\n" \
+    " M15 - 15 minutes,\n" \
+    " M30 - 30 minutes,\n" \
+    " H1 - 1 hour,\n" \
+    " H2 - 2 hours,\n" \
+    " H3 - 3 hours,\n" \
+    " H4 - 4 hours,\n" \
+    " H6 - 6 hours,\n" \
+    " H8 - 8 hours,\n" \
+    " H12 - 12 hours,\n" \
+    " D1 - 1 day,\n" \
+    " W 1 weak,\n" \
+    " MN = 1 month", action="store", default="M5")
 parser.add_argument("-i", "--indicators", help="List of indicators.", action="store_true") # TODO: Под вопросом.
 parser.add_argument("-a", "--account", help="Account number in Finam.", action="store_true")
 parser.add_argument("-p", "--password", help="Account password number in Finam.", action="store_true")
 parser.add_argument("-d", "--logs_directory", help="Logs store directory.", action="store_true", default="D:\Project_Robot")
 args = parser.parse_args()
 
-# log_file_path = "D:\Project_Robot\everything.log"
+# TODO: Priority: 2 [general] Логи с каждым перезапуском не должны перезаписываться файл лого должен дописываться и ротироваться каждый день в 00:00
 logging.basicConfig(level=logging.INFO, filename=args.logfile, filemode="w", format="%(asctime)s %(levelname)s %(message)s")
 
 # TODO: Сюда пока выносить параметры, что стоит указывать в аргументах при запуске, а не хардкодить.
@@ -80,7 +101,7 @@ def get_price(tick_obj):
 
 # Получение торговых данных инструмента за определенный промежуток
 def get_rates_frame(symbol, start_bar, bars_count):
-    rates = mt5.copy_rates_from_pos(symbol, args.timeframe, start_bar, bars_count)
+    rates = mt5.copy_rates_from_pos(symbol, Timeframe[args.timeframe].value, start_bar, bars_count)
     if len(rates) == 0:
         logging.error(symbol + ": get_rates_frame(): Failed to get history data. " + str(mt5.last_error()))
     rates_frame = pd.DataFrame(rates)
@@ -95,7 +116,7 @@ def update_frame(symbol, frame: pd.DataFrame, ma, rsi, atr):
     try:
         if frame.empty:
             logging.critical(str(symbol) + ": update_frame(): Frame is empty!")
-        last_rates = mt5.copy_rates_from_pos(symbol, args.timeframe, 1, 1)
+        last_rates = mt5.copy_rates_from_pos(symbol, Timeframe[args.timeframe].value, 1, 1)
         if not last_rates:
             logging.critical(str(symbol) + ": update_frame(): Failed to get last rate: " + mt5.last_error())
         
@@ -170,8 +191,8 @@ def lets_trade(symbol):
                     
                     # Для Симуляции
                     order_sell.fake_sell()
-                    take_profit = current_price + (atr_value)
-                    stop_loss = current_price - (atr_value)
+                    take_profit = current_price - (atr_value)
+                    stop_loss = current_price + (atr_value)
             else:
                 
                 
@@ -185,7 +206,7 @@ def lets_trade(symbol):
                     logging.info(str(symbol) + ": Signal to close position find: " + close_signal)
                     # order_sell.position_close() 
                     order_sell.fake_buy_sell_close(current_price)
-                    order_buy = None
+                    order_sell = None
                 
                 # Проверка на значений SL и TP не нужна для боевого робота. После симуляции удалить или закомментировать.
                 # Надо разобраться по какой-то причине по SLTP сделки не завершаются.
@@ -200,7 +221,7 @@ def lets_trade(symbol):
                     logging.info(str(symbol) + ": Signal to close position find: SLTP")
                     # order_sell.position_close() 
                     order_sell.fake_buy_sell_close(current_price)
-                    order_buy = None
+                    order_sell = None
         except(UnboundLocalError):
             logging.exception(str(symbol) + ": lets_trade(): Переменная или объект не в том месте.!!!")
 
@@ -214,8 +235,9 @@ def startRobot():
             logging.info(str(symbol) + ": start()")
             thread=threading.Thread(target=lets_trade, args=(symbol,), daemon=True)
             thread.start()
-    # TODO: Priority: 3 [general] Добавить "Уровень риска". Процент от общего счета который может использовать робот. 
-    # TODO: Priority: 3 [general] И предохранитель, если баланс опустил на n-% от максимального кидаем ошибку и останавливаемся.
+    # TODO: Priority: 2 [general] Добавить "Уровень риска". Процент от общего счета который может использовать робот. 
+    # TODO: Priority: 2 [general] И предохранитель, если баланс опустил на n-% от максимального кидаем ошибку и останавливаемся.
+    # Или например нет больше денег на болансе и сделку срвешить не возможно.
     print("Posible commands:")
     print("exit - exit from programm")
     print("Please enter command:")
@@ -224,6 +246,8 @@ def startRobot():
         if command == "exit":
             logging.info("Exit from programm.")
             break
+        else:
+            print("Please enter correct command.")
             
 
 startRobot()
