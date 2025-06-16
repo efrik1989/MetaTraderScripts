@@ -23,7 +23,7 @@ class Order():
         self.isBuy = True
         output_file = open("D:\Project_Robot\simulation.txt", "a")
         output_file.write(self.symbol + ", buy: " + str(self.open_price) + ", SL: " + str(self.open_price - (self.atr_value)) 
-                          + ", TP: " + str(self.open_price + (self.atr_value)) + ", " + str(time.asctime()) + "\n") 
+                          + ", TP: " + str(self.open_price + self.atr_value) + ", " + str(time.asctime()) + "\n") 
         output_file.close()
 
     def fake_sell(self):
@@ -31,7 +31,7 @@ class Order():
         self.isBuy = False
         output_file = open("D:\Project_Robot\simulation.txt", "a")
         output_file.write(self.symbol + ", sell: " + str(self.open_price) + ", SL: " + str(self.open_price + (self.atr_value)) 
-                          + ", TP: " + str(self.open_price - (self.atr_value)) + ", " + str(time.asctime()) + "\n")
+                          + ", TP: " + str(self.open_price - self.atr_value) + ", " + str(time.asctime()) + "\n")
         output_file.close()
 
     def fake_buy_sell_close(self, current_price):
@@ -41,7 +41,7 @@ class Order():
         profit = None
         if self.isBuy==True:
             profit = current_price - self.open_price    
-        elif self.isBuy==True:
+        elif self.isBuy==False:
             profit = self.open_price - current_price
         output_file.write(self.symbol + ", profit: " + str(profit) + ", " + str(time.asctime()) + "\n")
         output_file.close()
