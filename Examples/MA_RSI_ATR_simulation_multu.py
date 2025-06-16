@@ -138,14 +138,14 @@ def is_need_update_lst_bar(symbol, frame: pd.DataFrame, last_bar_frame):
         logging.critical(str(symbol) + ": is_need_update_lst_bar(): 1 оr more objects become 'None/Null'")
 
 def check_order(symbol, monney_mode, order_buy, order_sell):
-        result = None
+        result = False
         if monney_mode == "trade":
-            result = pd.DataFrame(mt5.positions_get(symbol)) 
-            return len(result) == 0
+            positions = pd.DataFrame(mt5.positions_get(symbol)) 
+            result = len(positions) > 0
         elif monney_mode == "simulation":
-            return (type(order_buy) == Order) or (type(order_sell) == Order)
+            result = (type(order_buy) == Order) or (type(order_sell) == Order)
         else:
-            logging.error("Wrong monney mode. Posible values: simulation or trade.")
+            logging.error("Wrong monney mode. Posible values: 'simulation' or 'trade'.")
         return result
 
 # Обновление данных для анализа и запуск самого анализа по индикаторам
@@ -191,18 +191,8 @@ def lets_trade(symbol):
         current_price = get_price(tick_obj)
         atr_value = float(np.array(frame['ATR'])[-1] * 2)
         
-        
-        # Версия проверки для симуляции
-        if (type(order_buy) == Order) or (type(order_sell) == Order):
-            result = 1
-        else:
-            result = 0
-        # Для симуляции это не подходит...
-        # result = pd.DataFrame(mt5.positions_get(symbol)) 
-        # Боевой вариант if len(result) == 0:
-        # Для симуляции
         try:
-            if result == 0: 
+            if check_order(symbol, args.monney_mode, order_buy, order_sell): 
                 if current_price >= ma_last and signal == "Open_buy":
                     logging.info(str(symbol) + ": Signal to open position find: " + signal)
                     if not is_bar_used:
