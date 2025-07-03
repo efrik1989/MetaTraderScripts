@@ -17,6 +17,7 @@ from indicators.rsi import RSI
 from indicators.atr import ATR
 from models.order import Order
 from models.timframe_enum import Timeframe
+from core.risk_manager import RiskManager
 """
 Основная задача скрипта опрпделеять точки входа в сделку и выхода.
 На вход получаем минутный фрейм, будем подоватьт по строчно т.е. будут известны история этих данных и 
@@ -26,7 +27,7 @@ from models.timframe_enum import Timeframe
 # TODO: Prioroty: 4 [general] Возможно стоит парсер аргументов в отдельный класс вынести...
 # TODO: Prioroty: 2 [general] Не все аргумены сделал. Точнее не все работает. Нужно будет с этим разобраться.
 # TODO: Priority: 1 [general] Обложить все юнит тестами
-# TODO: Priority: 2 [general] Добавить переключение между симуляцией и боевым режимом работы.
+
 parser = argparse.ArgumentParser()
 # Символы по умолчанию: "LKOH", "TATN", "SBER", "MAGN", "VTBR", "NLMK", "CHMF", "X5", "MGNT", "YDEX", "OZON"
 parser.add_argument("-s", "--symbols", help="List of instrument symbols. Enter like a strings list(Example: 'LKOH' 'TATN')\n" \
@@ -49,23 +50,37 @@ parser.add_argument("-t", "--timeframe", help="Timeframe of instrument grafic. D
     " D1 - 1 day,\n" \
     " W 1 weak,\n" \
     " MN = 1 month", action="store", default="M5")
-parser.add_argument("-i", "--indicators", help="List of indicators.", action="store_true") # TODO: Под вопросом.
+parser.add_argument("-i", "--indicators", help="List of indicators.", action="store_true") # TODO: Под вопросом. Думаю надо... Пока только думаю.
 parser.add_argument("-a", "--account", help="Account number in Finam.", action="store_true", default=23677)
 parser.add_argument("-p", "--password", help="Account password number in Finam.", action="store_true", default="3C$ap3%H")
+parser.add_argument("-mm", "--monney_manager", help="Percentage of the total balance that will be involved in trading.", action="store", default=100)
+parser.add_argument("-lr", "--lost_risk", help="Percentage of total balance that is allowed to be lost.", action="store", default=100)
+parser.add_argument("-ts", "--trailing_stop", help="price indent from Stop Loss.", action="store", default=0)
 parser.add_argument("-d", "--logs_directory", help="Logs store directory.", action="store_true", default="D:\Project_Robot")
 parser.add_argument("-m", "--monney_mode", help="Mode of start. Posible values: \n" \
                     "simulation - trade simulation,\n" \
                     "trade - real trade.", action="store", default="simulation")
 args = parser.parse_args()
+print("Выбраны иснтрументы:")
+print(args.symbols)
+print("Выбран таймфрэйм:")
+print(args.timeframe)
+print("Выбран период для предварительного анализа:")
+print(args.range)
+print("Выбран режим работы")
+print(args.monney_mode)
+print("Используется аккаунт")
+print(args.account)
 
 # TODO: Priority: 2 [general] Логи с каждым перезапуском не должны перезаписываться файл лого должен дописываться(готово) и ротироваться каждый день в 00:00
+# TODO: Priority: 2 [general\sim] В логи попадает запись об обновлении цены, а она каждую секунду обнавляется. Иих ОЧЕНЬ много.
 logging.basicConfig(level=logging.INFO, filename=args.logfile, filemode="a", format="%(asctime)s %(levelname)s %(message)s")
-
 
 # TODO: Сюда пока выносить параметры, что стоит указывать в аргументах при запуске, а не хардкодить.
 # Период для индикаторов
 window = 50
-threads_stop = False
+is_programm_need_to_stop = False
+
 # Timeframe данных (графика)
 # time_frame = mt5.TIMEFRAME_M5
 
@@ -82,7 +97,6 @@ def init_MT5():
     # print(mt5.version())
 
 def authorization():
-    # account = 23677 
     authorized = mt5.login(login=args.account, server="FINAM-AO",password=args.password)  
     if authorized:
         logging.info("authorization(): connected to account #{}".format(args.account))
@@ -133,25 +147,18 @@ def is_need_update_lst_bar(symbol, frame: pd.DataFrame, last_bar_frame):
             return True
         else:
             return False
-    
     except(AttributeError):
         logging.critical(str(symbol) + ": is_need_update_lst_bar(): 1 оr more objects become 'None/Null'")
 
-def check_order(symbol, monney_mode, order_buy, order_sell):
-        result = False
-        if monney_mode == "trade":
-            positions = pd.DataFrame(mt5.positions_get(symbol)) 
-            result = len(positions) > 0
-        elif monney_mode == "simulation":
-            result = (type(order_buy) == Order) or (type(order_sell) == Order)
-        else:
-            logging.error("Wrong monney mode. Posible values: 'simulation' or 'trade'.")
+def check_order(symbol):
+        positions = pd.DataFrame(mt5.positions_get(symbol)) 
+        result = len(positions) > 0
         return result
 
 # Обновление данных для анализа и запуск самого анализа по индикаторам
 # TODO: Была мысль обезличить запускаемые методы просчета стратегии, но думаю не стоит. Во всяком случае пока...
 # Как минимум над этим нужно подумать.
-def update_frame(symbol, frame: pd.DataFrame,last_bar_frame, ma, rsi, atr):
+def update_frame(symbol, frame: pd.DataFrame, last_bar_frame, ma, rsi, atr):
     try:    
             frame = pd.concat([frame, last_bar_frame], ignore_index=True)
             frame = ma.update_MA_values(frame)
@@ -168,6 +175,7 @@ def update_frame(symbol, frame: pd.DataFrame,last_bar_frame, ma, rsi, atr):
 
 def lets_trade(symbol):
     selectSymbol(symbol)
+    risk_manager = RiskManager(args.monney_manager, args.lost_risk)
     tick_obj = tick.Tick(symbol)
     frame = get_rates_frame(symbol, 2, args.range)
     ma50 = MA('MA50', window) 
@@ -182,6 +190,8 @@ def lets_trade(symbol):
         if is_need_update_lst_bar(symbol, frame, last_bar_frame):
             frame = update_frame(symbol, frame, last_bar_frame,  ma50, rsi, atr)
             is_bar_used = False
+            if not risk_manager.is_equity_satisfactory():
+                raise Exception("Balance is too low!!!")
 
         ma_last = np.array(pd.to_numeric(frame[ma50.name]))[-1]
         
@@ -189,69 +199,94 @@ def lets_trade(symbol):
         close_signal = np.array(frame['close_signal'])[-1]
 
         current_price = get_price(tick_obj)
+        # TODO: Возможно стоит ATR записывать в 2 отдельныйх столбца SL и TP. 
+        # А затем пост обработкой все значения кроме тех где сигнал на покупку\продажу выставлять NaN. Для более простого анализа.
         atr_value = float(np.array(frame['ATR'])[-1] * 2)
         
+        # signal = "Open_buy"
+        # close_signal = "Close_buy"
         try:
-            if check_order(symbol, args.monney_mode, order_buy, order_sell): 
-                if current_price >= ma_last and signal == "Open_buy":
-                    logging.info(str(symbol) + ": Signal to open position find: " + signal)
-                    if not is_bar_used:
-                        order_buy = Order(current_price, symbol, atr_value)
-                        if args.monney_mode == "trade":
+            # TODO: Очень много if-ов надо прикинуть как сделать логику проще или раскидать по функциям (что мне кажется более реально)
+            # if-ы раскидал немного но чет все еще громоздко
+            # После добавления risk_managera стало хуже. надо снова рефакторить. 
+            if args.monney_mode == "trade":
+                if not is_bar_used:
+
+                    is_order_open = check_order(symbol)
+
+                    if not is_order_open and current_price >= ma_last and signal == "Open_buy":
+                        logging.info(str(symbol) + ": Signal to open position find: " + signal)
+                        if risk_manager.is_tradable():
+                            order_buy = Order(current_price, symbol, atr_value)
                             order_buy.position_open(True, False)
-                    
-                        # Для Симуляции
-                        if args.monney_mode == "simulation":
-                            order_buy.fake_buy()
-                            take_profit = current_price + (atr_value)
-                            stop_loss = current_price - (atr_value)
-                            is_bar_used = True
-            
-                if current_price <= ma_last and signal == "Open_sell":
-                    logging.info(str(symbol) + ": Signal to open position find: " + signal)
-                    if not is_bar_used:
-                        order_sell = Order(current_price, symbol, atr_value)
-                        if args.monney_mode == "trade":
+                
+                    if not is_order_open and current_price <= ma_last and signal == "Open_sell":
+                        logging.info(str(symbol) + ": Signal to open position find: " + signal)
+                        if risk_manager.is_tradable():
+                            order_sell = Order(current_price, symbol, atr_value)
                             order_sell.position_open(False, True)
                         
-                        # Для Симуляции
-                        if args.monney_mode == "simulation":
-                            order_sell.fake_sell()
-                            take_profit = current_price - (atr_value)
-                            stop_loss = current_price + (atr_value)
-                            is_bar_used = True
-            else:
-                
-                
-                if type(order_buy) == Order and close_signal == "Close_buy":
-                    logging.info(str(symbol) + ": Signal to close position find: " + close_signal)
-                    if not is_bar_used:
-                        if args.monney_mode == "trade":
-                            order_buy.position_close()
-                        if args.monney_mode == "simulation":
-                            order_buy.fake_buy_sell_close(current_price)
-                            order_buy = None
+                    if is_order_open and close_signal == "Close_buy":
+                        logging.info(str(symbol) + ": Signal to close position find: " + close_signal)
+                        order_buy.position_close()
 
-                if (type(order_sell) == Order and close_signal == "Close_sell"):
-                    logging.info(str(symbol) + ": Signal to close position find: " + close_signal)
-                    if not is_bar_used:
-                        # order_sell.position_close() 
-                        if args.monney_mode == "simulation":
-                            order_sell.fake_buy_sell_close(current_price)
-                            order_sell = None
-                
-                # Проверка на значений SL и TP не нужна для боевого робота. После симуляции удалить или закомментировать.
-                # Надо разобраться по какой-то причине по SLTP сделки не завершаются.
-                if args.monney_mode == "simulation":
-                    if (type(order_buy) == Order and (current_price >= take_profit or current_price <= stop_loss )):
-                        logging.info(str(symbol) + ": Signal to close position find: SLTP")
+                    if is_order_open and close_signal == "Close_sell":
+                        logging.info(str(symbol) + ": Signal to close position find: " + close_signal)
+                        order_sell.position_close() 
+
+                    # Функция Trailing stop
+                    if type(order_buy) == Order and args.trailing_stop != 0:
+                        order_buy.traling_stop(current_price, args.trailing_stop)
+                    if type(order_sell) == Order and args.trailing_stop != 0:
+                        order_sell.traling_stop(current_price, args.trailing_stop)
+            
+            # Проверка на значений SL и TP не нужна для боевого робота. После симуляции удалить или закомментировать.
+            # Надо разобраться по какой-то причине по SLTP сделки не завершаются.
+            if args.monney_mode == "simulation":
+
+                if not is_bar_used:
+                    # Открытие сделки Buy
+                    if type(order_buy) != Order and current_price >= ma_last and signal == "Open_buy":
+                        logging.info(str(symbol) + ": Signal to open position find: " + signal)
+                        if risk_manager.is_tradable():
+                            order_buy = Order(current_price, symbol, atr_value)
+                            order_buy.fake_buy()
+                            is_bar_used = True
+
+                    # Открытие сделки Sell
+                    if type(order_sell ) != Order and current_price <= ma_last and signal == "Open_sell":
+                        logging.info(str(symbol) + ": Signal to open position find: " + signal)
+                        if risk_manager.is_tradable():
+                            order_sell = Order(current_price, symbol, atr_value)
+                            order_sell.fake_sell()
+                            is_bar_used = True
+
+                    if type(order_buy) == Order and close_signal == "Close_buy":
+                        logging.info(str(symbol) + ": Signal to close position find: " + close_signal)
                         order_buy.fake_buy_sell_close(current_price)
                         order_buy = None
 
-                    if (type(order_sell) == Order and (current_price <= take_profit or current_price >= stop_loss )):
-                        logging.info(str(symbol) + ": Signal to close position find: SLTP")
+                    if (type(order_sell) == Order and close_signal == "Close_sell"):
+                        logging.info(str(symbol) + ": Signal to close position find: " + close_signal)
                         order_sell.fake_buy_sell_close(current_price)
                         order_sell = None
+
+                # Проверка SLTP
+                if (type(order_buy) == Order and (current_price >= order_buy.take_profit or current_price <= order_buy.stop_loss )):
+                    logging.info(str(symbol) + ": Signal to close position find: SLTP")
+                    order_buy.fake_buy_sell_close(current_price)
+                    order_buy = None
+
+                if (type(order_sell) == Order and (current_price <= order_sell.take_profit or current_price >= order_sell.stop_loss )):
+                    logging.info(str(symbol) + ": Signal to close position find: SLTP")
+                    order_sell.fake_buy_sell_close(current_price)
+                    order_sell = None
+
+                # Функция Trailing stop
+                if type(order_buy) == Order and args.trailing_stop != 0:
+                    order_buy.fake_traling_stop(current_price, args.trailing_stop)
+                if type(order_sell) == Order and args.trailing_stop != 0:
+                    order_sell.fake_traling_stop(current_price, args.trailing_stop)
 
         except(UnboundLocalError):
             logging.exception(str(symbol) + ": lets_trade(): Переменная или объект не в том месте.!!!")
@@ -261,13 +296,13 @@ def startRobot():
     authorization()
     
     if len(args.symbols) != 0:
-        logging.info("Symbols lenght: " + str(len(args.symbols)))
+        logging.debug("Symbols lenght: " + str(len(args.symbols)))
         for symbol in args.symbols:
             logging.info(str(symbol) + ": start()")
             thread=threading.Thread(target=lets_trade, args=(symbol,), daemon=True)
             thread.start()
     # TODO: Priority: 2 [general] Добавить "Уровень риска". Процент от общего счета который может использовать робот. 
-    # TODO: Priority: 2 [general] И предохранитель, если баланс опустил на n-% от максимального кидаем ошибку и останавливаемся.
+    # TODO: Priority: 1 [general] И предохранитель, если баланс опустил на n-% от максимального кидаем ошибку и останавливаемся.
     # Или например нет больше денег на болансе и сделку совершить не возможно.
     print("Posible commands:")
     print("exit - exit from programm")

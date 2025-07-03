@@ -1,0 +1,95 @@
+from datetime import datetime, timedelta
+import sys
+import time
+import matplotlib.pyplot as plt
+import pandas as pd
+import logging
+from pandas.plotting import register_matplotlib_converters
+import numpy as np
+import argparse
+import threading
+
+register_matplotlib_converters()
+import MetaTrader5 as mt5
+from metatrader5EasyT import tick
+from indicators.ma import MA
+from indicators.rsi import RSI
+from indicators.atr import ATR
+from models.order import Order
+from models.timframe_enum import Timeframe
+from core.risk_manager import RiskManager
+
+
+class MT5_actions():
+    def __init__(self):
+        pass
+
+    def init_MT5():
+        # connect to MetaTrader 5
+        if not mt5.initialize("C:\\Program Files\\FINAM MetaTrader 5\\terminal64.exe"):
+            logging.critical("initialize(): failed")
+        
+        # request connection status and parameters,0000
+        # print(mt5.terminal_info())
+        # get data on MetaTrader 5 version
+        # print(mt5.version())
+
+    def authorization(account, password):
+        authorized = mt5.login(login=account, server="FINAM-AO",password=password)  
+        if authorized:
+            logging.info("authorization(): connected to account #{}".format(account))
+        else:
+            logging.error("authorization(): failed to connect at account #{}, error code: {}".format(account, mt5.last_error()))
+
+    # Выбираем символ(инструмент)
+    def selectSymbol(symbol):
+        selected=mt5.symbol_select(symbol,True)
+        if not selected:
+            logging.error("selectSymbol(): Failed to select " + str(symbol) + ", error code =",mt5.last_error())
+        else:
+            # symbol_info=mt5.symbol_info(symbol)
+            logging.info("selectSymbol(): " + str(symbol))
+
+    def get_price(tick_obj):        
+        tick_obj.get_new_tick()
+        return tick_obj.bid
+
+    # Получение торговых данных инструмента за определенный промежуток
+    def get_rates_frame(symbol, start_bar, bars_count, timeframe):
+        rates = mt5.copy_rates_from_pos(symbol, Timeframe[timeframe].value, start_bar, bars_count)
+        if len(rates) == 0:
+            logging.error(symbol + ": get_rates_frame(): Failed to get history data. " + str(mt5.last_error()))
+        rates_frame = pd.DataFrame(rates)
+        # rates_frame['time'] = pd.to_datetime(rates_frame['time'], unit='s')
+        rates_frame['close'] = pd.to_numeric(rates_frame['close'], downcast='float')
+        return rates_frame
+
+    # Получение последнего бара
+    def get_last_bar(symbol, index, timeframe):
+        last_rates = mt5.copy_rates_from_pos(symbol, Timeframe[timeframe].value, 1, 1)
+        if not last_rates:
+            logging.critical(str(symbol) + ": get_last_bar(): Failed to get last rate: " + mt5.last_error())
+            
+        last_rates_df = pd.DataFrame(last_rates, index=[index])
+        return last_rates_df
+
+    # Проверка нужно ли обновление фрэйма
+    def is_need_update_lst_bar(symbol, frame: pd.DataFrame, last_bar_frame):
+        try:
+            if frame.empty:
+                    logging.critical(str(symbol) + ": is_need_update_lst_bar(): Frame is empty!")
+            
+            last_bar_time = np.array(last_bar_frame['time'])[-1]
+            last_bar_time_frame = np.array(frame['time'].tail(1))[-1]
+            if np.array(last_bar_time_frame < last_bar_time):
+                return True
+            else:
+                return False
+        except(AttributeError):
+            logging.critical(str(symbol) + ": is_need_update_lst_bar(): 1 оr more objects become 'None/Null'")
+
+    def check_order(symbol):
+            positions = pd.DataFrame(mt5.positions_get(symbol)) 
+            result = len(positions) > 0
+            return result
+

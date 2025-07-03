@@ -7,3 +7,4 @@ abstractEasyT==0.2.2
 supportLibEasyT==0.1.0
 metatrader5EasyT
 TA-Lib
+matplotlib
