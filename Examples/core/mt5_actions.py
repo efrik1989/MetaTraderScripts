@@ -1,13 +1,9 @@
 from datetime import datetime, timedelta
-import sys
-import time
 import matplotlib.pyplot as plt
 import pandas as pd
 import logging
 from pandas.plotting import register_matplotlib_converters
 import numpy as np
-import argparse
-import threading
 
 register_matplotlib_converters()
 import MetaTrader5 as mt5
@@ -55,7 +51,7 @@ class MT5_actions():
         return tick_obj.bid
 
     # Получение торговых данных инструмента за определенный промежуток
-    def get_rates_frame(symbol, start_bar, bars_count, timeframe):
+    def get_rates_frame(symbol:str, start_bar: int, bars_count: int, timeframe: str):
         rates = mt5.copy_rates_from_pos(symbol, Timeframe[timeframe].value, start_bar, bars_count)
         if len(rates) == 0:
             logging.error(symbol + ": get_rates_frame(): Failed to get history data. " + str(mt5.last_error()))
@@ -65,28 +61,13 @@ class MT5_actions():
         return rates_frame
 
     # Получение последнего бара
-    def get_last_bar(symbol, index, timeframe):
+    def get_last_bar(symbol, timeframe, index ):
         last_rates = mt5.copy_rates_from_pos(symbol, Timeframe[timeframe].value, 1, 1)
         if not last_rates:
             logging.critical(str(symbol) + ": get_last_bar(): Failed to get last rate: " + mt5.last_error())
             
         last_rates_df = pd.DataFrame(last_rates, index=[index])
         return last_rates_df
-
-    # Проверка нужно ли обновление фрэйма
-    def is_need_update_lst_bar(symbol, frame: pd.DataFrame, last_bar_frame):
-        try:
-            if frame.empty:
-                    logging.critical(str(symbol) + ": is_need_update_lst_bar(): Frame is empty!")
-            
-            last_bar_time = np.array(last_bar_frame['time'])[-1]
-            last_bar_time_frame = np.array(frame['time'].tail(1))[-1]
-            if np.array(last_bar_time_frame < last_bar_time):
-                return True
-            else:
-                return False
-        except(AttributeError):
-            logging.critical(str(symbol) + ": is_need_update_lst_bar(): 1 оr more objects become 'None/Null'")
 
     def check_order(symbol):
             positions = pd.DataFrame(mt5.positions_get(symbol)) 
