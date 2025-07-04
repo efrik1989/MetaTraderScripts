@@ -74,11 +74,11 @@ class Order():
             new_value = current_price + self.atr_value
             isNeedToMoveSL = (self.stop_loss - (indent * point)) >= new_value
 
-        if isNeedToMoveSL: self.stop_loss = new_value
-
-        output_file = open("D:\Project_Robot\simulation.txt", "a")
-        output_file.write(self.symbol + ", SL: " + str(self.stop_loss) + ", " + str(time.asctime()) + "\n") 
-        output_file.close()
+        if isNeedToMoveSL: 
+            self.stop_loss = new_value
+            output_file = open("D:\Project_Robot\simulation.txt", "a")
+            output_file.write(self.symbol + ", SL: " + str(self.stop_loss) + ", " + str(time.asctime()) + "\n") 
+            output_file.close()
     
     def traling_stop(self, current_price, indent):
         isNeedToMoveSL = None
