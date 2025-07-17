@@ -27,13 +27,14 @@ class Args_parser():
             " H12 - 12 hours,\n" \
             " D1 - 1 day,\n" \
             " W 1 weak,\n" \
-            " MN = 1 month", action="store", default="M5")
+            " MN = 1 month", action="store", default="H4")
         parser.add_argument("-i", "--indicators", help="List of indicators.", action="store_true") # TODO: Под вопросом. Думаю надо... Пока только думаю.
         parser.add_argument("-a", "--account", help="Account number in Finam.", action="store_true", default=23677)
         parser.add_argument("-p", "--password", help="Account password number in Finam.", action="store_true", default="3C$ap3%H")
         parser.add_argument("-mm", "--monney_manager", help="Percentage of the total balance that will be involved in trading.", action="store", default=100)
         parser.add_argument("-lr", "--lost_risk", help="Percentage of total balance that is allowed to be lost.", action="store", default=100)
-        parser.add_argument("-ts", "--trailing_stop", type=int, help="price indent from Stop Loss.", action="store", default=0)
+        parser.add_argument("-ts", "--trailing_stop", type=int, help="Price indent from Stop Loss.", action="store", default=0)
+        parser.add_argument("-bs", "--buy_sell", help="Type of deals. True - buy and sell, False - only buy", action="store_true", default=False)
         parser.add_argument("-d", "--logs_directory", help="Logs store directory.", action="store_true", default="D:\Project_Robot")
         parser.add_argument("-m", "--monney_mode", help="Mode of start. Posible values: \n" \
                             "simulation - trade simulation,\n" \

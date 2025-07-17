@@ -69,9 +69,9 @@ class MA():
         # trend - показывает цена ниже или выше MA
         # MA_trend - показывает направление тренда. без учетта консолидации к сожалению.
         conditions = [
-            (frame['target_day_befor_1'] == True) & (frame['trend'] == "UP") & (frame['MA_trend'] == "UP") & (frame['close'] > frame[self.name]) 
+            (frame['target_day_befor_1'] == True) & (frame['trend'] == "UP") & (frame['close'] > frame[self.name]) 
                 & (frame['open'] < frame['close']),
-            (frame['target_day_befor_1'] == True) & (frame['trend'] == "DOWN") & (frame['MA_trend'] == "DOWN") & (frame['close'] < frame[self.name]) 
+            (frame['target_day_befor_1'] == True) & (frame['trend'] == "DOWN") & (frame['close'] < frame[self.name]) 
                 & (frame['open'] > frame['close'])]
         chois = ["Open_buy", "Open_sell"]
         frame['signal'] = np.select(conditions, chois, default="NaN")

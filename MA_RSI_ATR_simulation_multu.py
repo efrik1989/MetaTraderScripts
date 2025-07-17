@@ -119,7 +119,7 @@ def lets_trade(symbol):
                             order_buy = Order(current_price, symbol, atr_value)
                             order_buy.position_open(True, False)
                 
-                    if not is_order_open and current_price <= ma_last and signal == "Open_sell":
+                    if (not is_order_open and current_price <= ma_last and signal == "Open_sell") and args.buy_sell == True:
                         logging.info(str(symbol) + ": Signal to open position find: " + signal)
                         if risk_manager.is_tradable():
                             order_sell = Order(current_price, symbol, atr_value)
@@ -129,7 +129,7 @@ def lets_trade(symbol):
                         logging.info(str(symbol) + ": Signal to close position find: " + close_signal)
                         order_buy.position_close()
 
-                    if is_order_open and close_signal == "Close_sell":
+                    if (is_order_open and close_signal == "Close_sell") and args.buy_sell == True:
                         logging.info(str(symbol) + ": Signal to close position find: " + close_signal)
                         order_sell.position_close() 
 
@@ -153,7 +153,7 @@ def lets_trade(symbol):
                             is_bar_used = True
 
                     # Открытие сделки Sell
-                    if type(order_sell ) != Order and current_price <= ma_last and signal == "Open_sell":
+                    if args.buy_sell == True and (type(order_sell ) != Order and current_price <= ma_last and signal == "Open_sell"):
                         logging.info(str(symbol) + ": Signal to open position find: " + signal)
                         if risk_manager.is_tradable():
                             order_sell = Order(current_price, symbol, atr_value)
