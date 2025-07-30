@@ -113,13 +113,13 @@ def lets_trade(symbol):
 
                     is_order_open = mt5_a.check_order(symbol)
 
-                    if not is_order_open and current_price >= ma_last and signal == "Open_buy":
+                    if not is_order_open  and signal == "Open_buy":
                         logging.info(str(symbol) + ": Signal to open position find: " + signal)
                         if risk_manager.is_tradable():
                             order_buy = Order(current_price, symbol, atr_value)
                             order_buy.position_open(True, False)
                 
-                    if (not is_order_open and current_price <= ma_last and signal == "Open_sell") and args.buy_sell == True:
+                    if (not is_order_open and signal == "Open_sell") and args.buy_sell == True:
                         logging.info(str(symbol) + ": Signal to open position find: " + signal)
                         if risk_manager.is_tradable():
                             order_sell = Order(current_price, symbol, atr_value)
@@ -145,7 +145,7 @@ def lets_trade(symbol):
 
                 if not is_bar_used:
                     # Открытие сделки Buy
-                    if type(order_buy) != Order and current_price >= ma_last and signal == "Open_buy":
+                    if type(order_buy) != Order and signal == "Open_buy":
                         logging.info(str(symbol) + ": Signal to open position find: " + signal)
                         if risk_manager.is_tradable():
                             order_buy = Order(current_price, symbol, atr_value)
@@ -153,7 +153,7 @@ def lets_trade(symbol):
                             is_bar_used = True
 
                     # Открытие сделки Sell
-                    if args.buy_sell == True and (type(order_sell ) != Order and current_price <= ma_last and signal == "Open_sell"):
+                    if args.buy_sell == True and (type(order_sell ) != Order and signal == "Open_sell"):
                         logging.info(str(symbol) + ": Signal to open position find: " + signal)
                         if risk_manager.is_tradable():
                             order_sell = Order(current_price, symbol, atr_value)
