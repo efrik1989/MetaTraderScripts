@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+import os
 import sys
 import time
 import matplotlib.pyplot as plt
@@ -26,6 +27,9 @@ from core.args_parser import Args_parser as parser
 чтобы принять решение об открытии позиции нужно подождать закрытия следующего бара.
 """
 args = parser.args_parse()
+parser.create_dirs_if_not_exist(args.logs_directory + "\\" + args.monney_mode)
+parser.create_dirs_if_not_exist("frames")
+
 
 # TODO: Prioroty: 4 [general] Возможно стоит парсер аргументов в отдельный класс вынести...
 # TODO: Prioroty: 2 [general] Не все аргумены сделал. Точнее не все работает. Нужно будет с этим разобраться.
@@ -38,6 +42,8 @@ logging.basicConfig(level=logging.INFO, filename=args.logfile, filemode="a", for
 # Период для индикаторов
 window = 50
 is_programm_need_to_stop = False
+
+
 
 # Проверка нужно ли обновление фрэйма
 def is_need_update_lst_bar(symbol, frame: pd.DataFrame, last_bar_frame):
@@ -66,8 +72,8 @@ def update_frame(symbol, frame: pd.DataFrame, last_bar_frame, ma, rsi, atr):
             ma.strategyMA50(frame)
             rsi.startegyRSI_close(frame)
             # print(frame.tail(3))
-            frame.to_excel(args.logs_directory + '\out_' + str(symbol) + '_MA50_frame_signal_test.xlsx')
-            logging.info(str(symbol) + ": update_frame(): Update complete. Frame in: " + args.logs_directory + "\out_" + str(symbol) + "_MA50_frame_signal_test.xlsx to manual analis.")
+            frame.to_excel('frames\out_' + str(symbol) + '_MA50_frame_signal_test.xlsx')
+            logging.info(str(symbol) + ": update_frame(): Update complete. Frame in: frames\out_" + str(symbol) + "_MA50_frame_signal_test.xlsx to manual analis.")
             return frame
     except(AttributeError):
         logging.critical(str(symbol) + ": update_frame(): 1 оr more objects become 'None/Null'")

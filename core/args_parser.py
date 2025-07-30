@@ -4,9 +4,9 @@ import os
 class Args_parser():
 
     def __init__(self):
-        pass
+        link=None
 
-    def args_parse(self):
+    def args_parse():
         parser = argparse.ArgumentParser()
         # Символы по умолчанию: "LKOH", "TATN", "SBER", "MAGN", "VTBR", "NLMK", "CHMF", "X5", "MGNT", "YDEX", "OZON"
         parser.add_argument("-s", "--symbols", help="List of instrument symbols. Enter like a strings list(Example: 'LKOH' 'TATN')\n" \
@@ -51,13 +51,12 @@ class Args_parser():
         print(args.monney_mode)
         print("Используется аккаунт")
         print(args.account)
-        self.create_dirs_if_not_exist(args.logs_directory)
-        self.create_dirs_if_not_exist(args.monney_mode)
-        self.create_dirs_if_not_exist("frames")
         return args
     
-    def create_dirs_if_not_exist(self, path):
+    def create_dirs_if_not_exist(path):
         try:
             os.makedirs(path, exist_ok=True)
+            print(f"Директория '{path}' успешно создана или уже существует.")
         except OSError as e:
             print(f"Ошибка при создании директории '{path}': {e}")
+    
