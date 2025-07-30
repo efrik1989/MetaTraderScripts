@@ -26,7 +26,7 @@ class Order():
         self.isBuy = True
         self.stop_loss = self.open_price - self.atr_value
         self.take_profit = self.open_price + self.atr_value
-        output_file = open("D:\Project_Robot\simulation.txt", "a")
+        output_file = open("simulation\simulation.txt", "a")
         output_file.write(self.symbol + ", buy: " + str(self.open_price) + ", SL: " + str(self.stop_loss) 
                           + ", TP: " + str(self.take_profit) + ", " + str(time.asctime()) + "\n") 
         output_file.close()
@@ -36,14 +36,14 @@ class Order():
         self.isBuy = False
         self.stop_loss = self.open_price + self.atr_value
         self.take_profit = self.open_price - self.atr_value
-        output_file = open("D:\Project_Robot\simulation.txt", "a")
+        output_file = open("simulation\simulation.txt", "a")
         output_file.write(self.symbol + ", sell: " + str(self.open_price) + ", SL: " + str(self.stop_loss) 
                           + ", TP: " + str(self.take_profit) + ", " + str(time.asctime()) + "\n")
         output_file.close()
 
     def fake_buy_sell_close(self, current_price):
         logging.info("fake_close()")
-        output_file = open("D:\Project_Robot\simulation.txt", "a")
+        output_file = open("simulation\simulation.txt", "a")
         output_file.write(self.symbol + ", close_position: " + str(current_price) + ", " + str(time.asctime()) + "\n")
         profit = None
         if self.isBuy==True:
@@ -76,7 +76,7 @@ class Order():
 
         if isNeedToMoveSL: 
             self.stop_loss = new_value
-            output_file = open("D:\Project_Robot\simulation.txt", "a")
+            output_file = open("simulation\simulation.txt", "a")
             output_file.write(self.symbol + ", SL: " + str(self.stop_loss) + ", " + str(time.asctime()) + "\n") 
             output_file.close()
     
