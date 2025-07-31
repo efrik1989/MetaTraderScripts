@@ -9,3 +9,4 @@ supportLibEasyT
 metatrader5EasyT
 TA-Lib
 matplotlib
+openpyxl

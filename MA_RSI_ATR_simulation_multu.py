@@ -30,9 +30,6 @@ args = parser.args_parse()
 parser.create_dirs_if_not_exist(args.logs_directory + "\\" + args.monney_mode)
 parser.create_dirs_if_not_exist("frames")
 
-
-# TODO: Prioroty: 4 [general] Возможно стоит парсер аргументов в отдельный класс вынести...
-# TODO: Prioroty: 2 [general] Не все аргумены сделал. Точнее не все работает. Нужно будет с этим разобраться.
 # TODO: Priority: 1 [general] Обложить все юнит тестами
 # TODO: Priority: 2 [general] Логи с каждым перезапуском не должны перезаписываться файл лого должен дописываться(готово) и ротироваться каждый день в 00:00
 # TODO: Priority: 2 [general\sim] В логи попадает запись об обновлении цены, а она каждую секунду обнавляется. Иих ОЧЕНЬ много.
@@ -62,7 +59,7 @@ def is_need_update_lst_bar(symbol, frame: pd.DataFrame, last_bar_frame):
 
 # Обновление данных для анализа и запуск самого анализа по индикаторам
 # TODO: Была мысль обезличить запускаемые методы просчета стратегии, но думаю не стоит. Во всяком случае пока...
-# Как минимум над этим нужно подумать.
+# Как минимум над этим нужно подумать. Думаю стоит это сделать, но пока нет пониимая каким образом.
 def update_frame(symbol, frame: pd.DataFrame, last_bar_frame, ma, rsi, atr):
     try:    
             frame = pd.concat([frame, last_bar_frame], ignore_index=True)
@@ -72,8 +69,8 @@ def update_frame(symbol, frame: pd.DataFrame, last_bar_frame, ma, rsi, atr):
             ma.strategyMA50(frame)
             rsi.startegyRSI_close(frame)
             # print(frame.tail(3))
-            frame.to_excel('frames\out_' + str(symbol) + '_MA50_frame_signal_test.xlsx')
-            logging.info(str(symbol) + ": update_frame(): Update complete. Frame in: frames\out_" + str(symbol) + "_MA50_frame_signal_test.xlsx to manual analis.")
+            frame.to_excel('frames\\out_' + str(symbol) + '_MA50_frame_signal_test.xlsx')
+            logging.info(str(symbol) + ": update_frame(): Update complete. Frame in: frames\\out_" + str(symbol) + "_MA50_frame_signal_test.xlsx to manual analis.")
             return frame
     except(AttributeError):
         logging.critical(str(symbol) + ": update_frame(): 1 оr more objects become 'None/Null'")

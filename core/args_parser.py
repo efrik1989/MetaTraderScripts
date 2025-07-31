@@ -56,7 +56,6 @@ class Args_parser():
     def create_dirs_if_not_exist(path):
         try:
             os.makedirs(path, exist_ok=True)
-            print(f"Директория '{path}' успешно создана или уже существует.")
         except OSError as e:
             print(f"Ошибка при создании директории '{path}': {e}")
     
