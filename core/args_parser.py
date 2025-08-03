@@ -1,17 +1,18 @@
 import argparse
 import os
+import core.global_vars as gv
 
 class Args_parser():
 
     def __init__(self):
-        link=None
+        pass
 
-    def args_parse():
+    def args_parse(self):
         parser = argparse.ArgumentParser()
         # Символы по умолчанию: "LKOH", "TATN", "SBER", "MAGN", "VTBR", "NLMK", "CHMF", "X5", "MGNT", "YDEX", "OZON"
         parser.add_argument("-s", "--symbols", help="List of instrument symbols. Enter like a strings list(Example: 'LKOH' 'TATN')\n" \
         " Default: 'LKOH', 'TATN', 'SBER', 'MAGN', 'VTBR', 'NLMK', 'CHMF', 'X5', 'MGNT', 'YDEX', 'OZON'", nargs="+", action="store", default=["LKOH", "TATN", "SBER", "MAGN", "VTBR", "NLMK", "CHMF", "X5", "MGNT", "YDEX", "OZON"] )
-        parser.add_argument("-l", "--logfile", help="Logfile path. Default: '.\logs\everything.log'", action="store", default="logs\everything.log")
+        parser.add_argument("-l", "--logfile", help="Logfile path. Default: '.\\logs\\everything.log'", action="store", default="everything.log")
         parser.add_argument("-r", "--range", type=int, help="Range of bar at first analis.", action="store", default=100)
         parser.add_argument("-t", "--timeframe", help="Timeframe of instrument grafic. Default: 'M5' (5 minuts).\n" \
             " Posible values:\n" \
@@ -41,6 +42,8 @@ class Args_parser():
                             "simulation - trade simulation,\n" \
                             "trade - real trade.", action="store", default="simulation")
         args = parser.parse_args()
+        args.logfile = args.logs_directory + "\\" + args.logfile
+        gv.global_args = args
         print("Выбраны иснтрументы:")
         print(args.symbols)
         print("Выбран таймфрэйм:")
@@ -51,11 +54,15 @@ class Args_parser():
         print(args.monney_mode)
         print("Используется аккаунт")
         print(args.account)
+        print("Файл логов")
+        print(gv.global_args.logfile)
+        self.create_dirs_if_not_exist(args.logs_directory + "\\" + args.monney_mode)
+        self.create_dirs_if_not_exist("frames")
+
         return args
     
-    def create_dirs_if_not_exist(path):
+    def create_dirs_if_not_exist(self, path):
         try:
             os.makedirs(path, exist_ok=True)
         except OSError as e:
             print(f"Ошибка при создании директории '{path}': {e}")
-    

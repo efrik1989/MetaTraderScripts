@@ -1,9 +1,11 @@
 from datetime import datetime, timedelta
-import logging
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import MetaTrader5 as mt5
+import core.app_logger as app_logger
+
+logger=app_logger.get_logger(__name__)
 
 
 """
@@ -35,7 +37,7 @@ class MA():
     
     # Стратегия подсвечивает сигналы при работе с индикатором MA50 на исторических данных
     def strategyMA50(self, frame):
-        logging.info("strategyMA50(): start frame analis...")
+        logger.info("strategyMA50(): start frame analis...")
         frame['diff'] = pd.to_numeric(frame['close']) - pd.to_numeric(frame[self.name])
         # TODO: Priority: 1 [general] Определение тренда хромает. Для направления сделки этого маловато. Нужно расчитать вектор, куда идет тренд.
         frame['trend'] = pd.Series(frame['diff']) > 0
@@ -76,4 +78,4 @@ class MA():
         chois = ["Open_buy", "Open_sell"]
         frame['signal'] = np.select(conditions, chois, default="NaN")
 
-        logging.info("strategyMA50(): Analis complete.")
+        logger.info("strategyMA50(): Analis complete.")

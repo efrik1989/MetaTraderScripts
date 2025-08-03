@@ -3,12 +3,14 @@ import sys
 import time
 import matplotlib.pyplot as plt
 import pandas as pd
-import logging
 from pandas.plotting import register_matplotlib_converters
 import numpy as np
+import core.app_logger as app_logger
 
 register_matplotlib_converters()
 import MetaTrader5 as mt5
+
+logger = app_logger.get_logger(__name__)
 
 class RiskManager():
     def __init__(self, trade_risk, lost_risk):
@@ -38,10 +40,10 @@ class RiskManager():
          free_margin = float(self.account_info_dict.get("margin_free"))
          risk_equity_value = self.equity - self.get_trade_risk_volue()
          if free_margin >= risk_equity_value:
-              logging.debug("is_tradable(): Robot can trading. risk_equity_value: " + str(risk_equity_value))
+              logger.info("is_tradable(): Robot can trading. risk_equity_value: " + str(risk_equity_value))
               return True
          else:
-              logging.debug("is_tradable(): Robot can't trading.")
+              logger.warning("is_tradable(): Robot can't trading.")
               return False
          
     def is_equity_satisfactory(self):
@@ -49,7 +51,7 @@ class RiskManager():
          if self.equity >= self.get_lost_risk_volue():
             return True
          else:
-              logging.debug("is_balance_too_low(): Balances have gone beyond the risk value.")
+              logger.warning("is_balance_too_low(): Balances have gone beyond the risk value.")
               return False
 """    
 def start():

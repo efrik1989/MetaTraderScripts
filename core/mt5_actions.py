@@ -1,7 +1,6 @@
 from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
 import pandas as pd
-import logging
 from pandas.plotting import register_matplotlib_converters
 import numpy as np
 
@@ -14,7 +13,9 @@ from indicators.atr import ATR
 from models.order import Order
 from models.timframe_enum import Timeframe
 from core.risk_manager import RiskManager
+import core.app_logger as app_logger
 
+logger = app_logger.get_logger(__name__)
 
 class MT5_actions():
     def __init__(self):
@@ -23,7 +24,7 @@ class MT5_actions():
     def init_MT5():
         # connect to MetaTrader 5
         if not mt5.initialize("C:\\Program Files\\FINAM MetaTrader 5\\terminal64.exe"):
-            logging.critical("initialize(): failed")
+            logger.critical("initialize(): failed")
         
         # request connection status and parameters,0000
         # print(mt5.terminal_info())
@@ -33,18 +34,18 @@ class MT5_actions():
     def authorization(account, password):
         authorized = mt5.login(login=account, server="FINAM-AO",password=password)  
         if authorized:
-            logging.info("authorization(): connected to account #{}".format(account))
+            logger.info("authorization(): connected to account #{}".format(account))
         else:
-            logging.error("authorization(): failed to connect at account #{}, error code: {}".format(account, mt5.last_error()))
+            logger.error("authorization(): failed to connect at account #{}, error code: {}".format(account, mt5.last_error()))
 
     # Выбираем символ(инструмент)
     def selectSymbol(symbol):
         selected=mt5.symbol_select(symbol,True)
         if not selected:
-            logging.error("selectSymbol(): Failed to select " + str(symbol) + ", error code =",mt5.last_error())
+            logger.error("selectSymbol(): Failed to select " + str(symbol) + ", error code =",mt5.last_error())
         else:
             # symbol_info=mt5.symbol_info(symbol)
-            logging.info("selectSymbol(): " + str(symbol))
+            logger.info("selectSymbol(): " + str(symbol))
 
     def get_price(tick_obj):        
         tick_obj.get_new_tick()
@@ -54,7 +55,7 @@ class MT5_actions():
     def get_rates_frame(symbol:str, start_bar: int, bars_count: int, timeframe: str):
         rates = mt5.copy_rates_from_pos(symbol, Timeframe[timeframe].value, start_bar, bars_count)
         if len(rates) == 0:
-            logging.error(symbol + ": get_rates_frame(): Failed to get history data. " + str(mt5.last_error()))
+            logger.error(symbol + ": get_rates_frame(): Failed to get history data. " + str(mt5.last_error()))
         rates_frame = pd.DataFrame(rates)
         # rates_frame['time'] = pd.to_datetime(rates_frame['time'], unit='s')
         rates_frame['close'] = pd.to_numeric(rates_frame['close'], downcast='float')
@@ -64,7 +65,7 @@ class MT5_actions():
     def get_last_bar(symbol, timeframe, index ):
         last_rates = mt5.copy_rates_from_pos(symbol, Timeframe[timeframe].value, 1, 1)
         if not last_rates:
-            logging.critical(str(symbol) + ": get_last_bar(): Failed to get last rate: " + mt5.last_error())
+            logger.critical(str(symbol) + ": get_last_bar(): Failed to get last rate: " + mt5.last_error())
             
         last_rates_df = pd.DataFrame(last_rates, index=[index])
         return last_rates_df

@@ -1,8 +1,10 @@
 from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
 import pandas as pd
-import logging
 import numpy as np
+import core.app_logger as app_logger
+
+logger=app_logger.get_logger(__name__)
 
 class RSI():
     def __init__(self, name, period, ema):
@@ -11,7 +13,7 @@ class RSI():
         self.ema = ema
 
     def update_RSI_values(self, frame):
-        logging.info("update_RSI_values(): Начато обновление данных RSI.")
+        logger.info("update_RSI_values(): Начато обновление данных RSI.")
         close_delta = frame['close'].diff()
         # Делаем две серий: одну для низких закрытий и одну для высоких закрытий
         up = close_delta.clip(lower=0)
@@ -29,7 +31,7 @@ class RSI():
         rsi = ma_up / ma_down
         rsi = 100 - (100/(1 + rsi))
         frame[self.name] = rsi
-        logging.info("update_RSI_values(): Закончено обновление данных RSI.")
+        logger.info("update_RSI_values(): Закончено обновление данных RSI.")
         return frame
     
     #Функция опрделения точки выходи из сделки
