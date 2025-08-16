@@ -36,7 +36,7 @@ class Args_parser():
         parser.add_argument("-mm", "--monney_manager", help="Percentage of the total balance that will be involved in trading.", action="store", default=100)
         parser.add_argument("-lr", "--lost_risk", help="Percentage of total balance that is allowed to be lost.", action="store", default=100)
         parser.add_argument("-ts", "--trailing_stop", type=int, help="Price indent from Stop Loss.", action="store", default=0)
-        parser.add_argument("-bs", "--buy_sell", help="Type of deals. True - buy and sell, False - only buy", action="store_true", default=False)
+        parser.add_argument("-bs", "--buy_sell", help="Type of deals. True - buy and sell, False - only buy. Example: -bs (it's True value).", action="store_true", default=False)
         parser.add_argument("-d", "--logs_directory", help="Logs store directory.", action="store_true", default="logs")
         parser.add_argument("-m", "--monney_mode", help="Mode of start. Posible values: \n" \
                             "simulation - trade simulation,\n" \
@@ -57,7 +57,7 @@ class Args_parser():
         print("Файл логов")
         print(gv.global_args.logfile)
         self.create_dirs_if_not_exist(args.logs_directory + "\\" + args.monney_mode)
-        self.create_dirs_if_not_exist("frames")
+        self.create_dirs_if_not_exist(args.logs_directory + "\\frames")
 
         return args
     

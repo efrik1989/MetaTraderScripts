@@ -37,10 +37,8 @@ from models.order import Order
 """
 
 # TODO: Priority: 1 [general] Обложить все юнит тестами
-# TODO: Priority: 2 [general] Логи с каждым перезапуском не должны перезаписываться файл лого должен дописываться(готово) и ротироваться каждый день в 00:00
-# TODO: Priority: 2 [general\sim] В логи попадает запись об обновлении цены, а она каждую секунду обнавляется. Иих ОЧЕНЬ много.
-# Отвалилось логирование друоих файлов нужно сделать и закрывать. 
-# TODO: пока выносить параметры, что стоит указывать в аргументах при запуске, а не хардкодить.
+# TODO: Пока выносить параметры, что стоит указывать в аргументах при запуске, а не хардкодить.
+# TODO: Сделать возможность выставлять только SL или TP
 # Период для индикаторов
 window = 50
 is_programm_need_to_stop = False
@@ -73,12 +71,29 @@ def update_frame(symbol, frame: pd.DataFrame, last_bar_frame, ma, rsi, atr):
             frame = atr.update_ATR_values(frame)
             ma.strategyMA50(frame)
             rsi.startegyRSI_close(frame)
-            # print(frame.tail(3))
-            frame.to_excel('frames\\out_' + str(symbol) + '_MA50_frame_signal_test.xlsx')
-            logger.info(str(symbol) + ": update_frame(): Update complete. Frame in: frames\\out_" + str(symbol) + "_MA50_frame_signal_test.xlsx to manual analis.")
             return frame
     except(AttributeError):
         logger.critical(str(symbol) + ": update_frame(): 1 оr more objects become 'None/Null'")
+
+def isCondition(frame, index, order_id):
+    val = "NaN"
+    if index == len(frame['target']) - 1: 
+        val = order_id
+    return val
+
+def position_id_in_frame(order: Order, frame: pd.DataFrame, is_order_open):
+    if type(order) == Order or is_order_open:
+        if 'order_id' in frame.columns:
+            frame.loc[frame.index[-1], 'order_id'] = order.id
+            logger.info("order_id обновлен.")
+        else:
+            logger.info("Столбец 'order_id' не существует и будет создан.")
+            close_ser = frame['target'].to_list()
+            is_opened_list = []
+            for index, item in enumerate(close_ser):
+                is_opened_list.append(isCondition(frame, index, order.id))
+            frame['order_id'] = is_opened_list
+    return frame
 
 def lets_trade(symbol):
     mt5_a.selectSymbol(symbol)
@@ -88,6 +103,7 @@ def lets_trade(symbol):
     ma50 = MA('MA50', window) 
     rsi = RSI("RSI14", 14, True)
     atr = ATR("ATR", 14)
+    is_order_open = mt5_a.check_order(symbol)
     order_sell = None
     order_buy = None
     is_bar_used = False
@@ -96,6 +112,11 @@ def lets_trade(symbol):
         last_bar_frame = mt5_a.get_last_bar(symbol, args.timeframe, index=np.array(frame.index)[-1] + 1)
         if is_need_update_lst_bar(symbol, frame, last_bar_frame):
             frame = update_frame(symbol, frame, last_bar_frame,  ma50, rsi, atr)
+            # TODO: Priority: 3 Можно оставить один если будет только order.
+            frame = position_id_in_frame(order_buy, frame, is_order_open)
+            frame = position_id_in_frame(order_sell, frame, is_order_open)
+            frame.to_excel(args.logs_directory + '\\frames\\out_' + str(symbol) + '_MA50_frame_signal_test.xlsx')
+            logger.info(f"{str(symbol)}: Frames update complete. Frame in: {args.logs_directory}\\frames\\{str(symbol)}_MA50_RSI_ATR_signals_test.xlsx to manual analis.")
             is_bar_used = False
             if not risk_manager.is_equity_satisfactory():
                 raise Exception("Balance is too low!!!")
@@ -117,19 +138,19 @@ def lets_trade(symbol):
             if args.monney_mode == "trade":
                 if not is_bar_used:
 
-                    is_order_open = mt5_a.check_order(symbol)
-
                     if not is_order_open  and signal == "Open_buy":
                         logger.info(str(symbol) + ": Signal to open position find: " + signal)
                         if risk_manager.is_tradable():
                             order_buy = Order(current_price, symbol, atr_value)
                             order_buy.position_open(True, False)
+                            frame = position_id_in_frame(order_buy, frame, is_order_open)
                 
                     if (not is_order_open and signal == "Open_sell") and args.buy_sell == True:
                         logger.info(str(symbol) + ": Signal to open position find: " + signal)
                         if risk_manager.is_tradable():
                             order_sell = Order(current_price, symbol, atr_value)
                             order_sell.position_open(False, True)
+                            frame = position_id_in_frame(order_sell, frame, is_order_open)
                         
                     if is_order_open and close_signal == "Close_buy":
                         logger.info(str(symbol) + ": Signal to close position find: " + close_signal)
@@ -157,6 +178,7 @@ def lets_trade(symbol):
                             order_buy = Order(current_price, symbol, atr_value)
                             order_buy.fake_buy()
                             is_bar_used = True
+                            frame = position_id_in_frame(order_buy, frame, is_order_open)
 
                     # Открытие сделки Sell
                     if args.buy_sell == True and (type(order_sell ) != Order and signal == "Open_sell"):
@@ -165,6 +187,7 @@ def lets_trade(symbol):
                             order_sell = Order(current_price, symbol, atr_value)
                             order_sell.fake_sell()
                             is_bar_used = True
+                            frame = position_id_in_frame(order_sell, frame, is_order_open)
 
                     if type(order_buy) == Order and close_signal == "Close_buy":
                         logger.info(str(symbol) + ": Signal to close position find: " + close_signal)
@@ -176,16 +199,16 @@ def lets_trade(symbol):
                         order_sell.fake_buy_sell_close(current_price)
                         order_sell = None
 
-                # Проверка SLTP
-                if (type(order_buy) == Order and (current_price >= order_buy.take_profit or current_price <= order_buy.stop_loss )):
-                    logger.info(str(symbol) + ": Signal to close position find: SLTP")
-                    order_buy.fake_buy_sell_close(current_price)
-                    order_buy = None
+                    # Проверка SLTP
+                    if (type(order_buy) == Order and (current_price >= order_buy.take_profit or current_price <= order_buy.stop_loss )):
+                        logger.info(str(symbol) + ": Signal to close position find: SLTP")
+                        order_buy.fake_buy_sell_close(current_price)
+                        order_buy = None
 
-                if (type(order_sell) == Order and (current_price <= order_sell.take_profit or current_price >= order_sell.stop_loss )):
-                    logger.info(str(symbol) + ": Signal to close position find: SLTP")
-                    order_sell.fake_buy_sell_close(current_price)
-                    order_sell = None
+                    if (type(order_sell) == Order and (current_price <= order_sell.take_profit or current_price >= order_sell.stop_loss )):
+                        logger.info(str(symbol) + ": Signal to close position find: SLTP")
+                        order_sell.fake_buy_sell_close(current_price)
+                        order_sell = None
 
                 # Функция Trailing stop
                 if type(order_buy) == Order and args.trailing_stop != 0:

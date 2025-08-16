@@ -1,9 +1,14 @@
 import time
 import MetaTrader5 as mt5
-import logging
 from datetime import datetime
 from metatrader5EasyT import trade
 import pandas as pd
+import core.global_vars as gv
+import core.app_logger as app_logger
+import random
+
+logger=app_logger.get_logger(__name__)
+
 
 # Класс отвечающий за описание ордера
 class Order():
@@ -16,34 +21,35 @@ class Order():
         self.isBuy = None
         self.stop_loss = None
         self.take_profit = None
+        self.id = random.randint(0, 100000)
 
     def position_check(self):
         self.position_check()
 
     # Запись в файл времени и теукщей цены
     def fake_buy(self):
-        logging.info("fake_buy()")
+        logger.info("Order.id = " + str(self.id))
         self.isBuy = True
         self.stop_loss = self.open_price - self.atr_value
         self.take_profit = self.open_price + self.atr_value
-        output_file = open("simulation\simulation.txt", "a")
+        output_file = open(gv.global_args.logs_directory + "\\simulation.txt", "a")
         output_file.write(self.symbol + ", buy: " + str(self.open_price) + ", SL: " + str(self.stop_loss) 
                           + ", TP: " + str(self.take_profit) + ", " + str(time.asctime()) + "\n") 
         output_file.close()
 
     def fake_sell(self):
-        logging.info("fake_sell()")
+        logger.info("Order.id = " + str(self.id))
         self.isBuy = False
         self.stop_loss = self.open_price + self.atr_value
         self.take_profit = self.open_price - self.atr_value
-        output_file = open("simulation\simulation.txt", "a")
+        output_file = open(gv.global_args.logs_directory + "\\simulation.txt", "a")
         output_file.write(self.symbol + ", sell: " + str(self.open_price) + ", SL: " + str(self.stop_loss) 
                           + ", TP: " + str(self.take_profit) + ", " + str(time.asctime()) + "\n")
         output_file.close()
 
     def fake_buy_sell_close(self, current_price):
-        logging.info("fake_close()")
-        output_file = open("simulation\simulation.txt", "a")
+        logger.info("Order.id = " + str(self.id))
+        output_file = open(gv.global_args.logs_directory + "\\simulation.txt", "a")
         output_file.write(self.symbol + ", close_position: " + str(current_price) + ", " + str(time.asctime()) + "\n")
         profit = None
         if self.isBuy==True:
@@ -54,11 +60,11 @@ class Order():
         output_file.close()
 
     def position_open(self, buy: bool, sell: bool):
-        logging.info("position_open()")
+        logger.info("Order.id = " + str(self.id))
         self.trade_obj.position_open(buy, sell)
 
     def position_close(self):
-        logging.info("position_close()")
+        logger.info("Order.id = " + str(self.id))
         self.trade_obj.position_close()
     
     # TODO: Priority: 1 [general\sim]Реализовать трэйлинг стоп
@@ -76,7 +82,7 @@ class Order():
 
         if isNeedToMoveSL: 
             self.stop_loss = new_value
-            output_file = open("simulation\simulation.txt", "a")
+            output_file = open(gv.global_args.logs_directory + "\\simulation.txt", "a")
             output_file.write(self.symbol + ", SL: " + str(self.stop_loss) + ", " + str(time.asctime()) + "\n") 
             output_file.close()
     
@@ -113,9 +119,9 @@ class Order():
         }
         result=mt5.order_send(request)
         if result.retcode != mt5.TRADE_RETCODE_DONE:
-            logging.error("4. order_send failed, retcode={}".format(result.retcode))
-            logging.error("   result",result)
+            logger.error("4. order_send failed, retcode={}".format(result.retcode))
+            logger.error("   result",result)
         else:
             # request the result as a dictionary and display it element by element
             result_dict=result._asdict()
-            logging.info("Value of Stop Loss is changed. SL = " + str(result_dict.get('sl')))
+            logger.info("Value of Stop Loss is changed. SL = " + str(result_dict.get('sl')))

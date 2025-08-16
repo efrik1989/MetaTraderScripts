@@ -19,16 +19,18 @@ def get_stream_handler():
     return stream_handler
 
 def get_rotate_handler(filename):
-    rotate_handler = logging.handlers.TimedRotatingFileHandler(filename, when='H', interval=1, 
+    rotate_handler = logging.handlers.TimedRotatingFileHandler(filename, when='midnight', interval=1, 
                          backupCount=7, encoding=None, 
                          delay=False, utc=False, atTime=None)
+    rotate_handler.setLevel(logging.INFO)
+    rotate_handler.setFormatter(logging.Formatter(_log_format))
     return rotate_handler
 
 def get_logger(name):
     log_filename = gv.global_args.logfile
     logger = logging.getLogger(name)
     logger.setLevel(logging.INFO)
-    logger.addHandler(get_file_handler(log_filename))
+    # logger.addHandler(get_file_handler(log_filename))
     logger.addHandler(get_rotate_handler(log_filename))
     # Стоит ли ошибки выводить в консоль ошибки? Вопрос...
     # logger.addHandler(get_stream_handler())
