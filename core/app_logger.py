@@ -30,8 +30,13 @@ def get_logger(name):
     log_filename = gv.global_args.logfile
     logger = logging.getLogger(name)
     logger.setLevel(logging.INFO)
-    # logger.addHandler(get_file_handler(log_filename))
-    logger.addHandler(get_rotate_handler(log_filename))
+    logger.addHandler(get_file_handler(log_filename))
+    # TODO: Priority: 3 Блядство... В винде ротация логов с нескольькими потоками не работает
+    # https://qna.habr.com/q/1341954
+    # Можно попробовать в отдельно логировать каждый инструмент в свой файл. 
+    # Либо переезжать на linux 
+    # logger.addHandler(get_rotate_handler(log_filename))
+    #  
     # Стоит ли ошибки выводить в консоль ошибки? Вопрос...
     # logger.addHandler(get_stream_handler())
     logger.propagate = False
