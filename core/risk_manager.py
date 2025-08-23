@@ -30,6 +30,8 @@ class RiskManager():
          risk_value = (self.equity / 100) * self.trade_risk
          return float(risk_value)
     
+    # BUG: Priority: 1 Ошибка при включении параметра '-lr 20'
+    # TypeError   can`t multiply sequence by non-int of type 'float'
     def get_lost_risk_volue(self):
          low_balance = self.equity - ((self.equity / 100) * self.lost_risk)
          return float(low_balance)

@@ -35,7 +35,8 @@ from models.order import Order
 На вход получаем минутный фрейм, будем подоватьт по строчно т.е. будут известны история этих данных и 
 чтобы принять решение об открытии позиции нужно подождать закрытия следующего бара.
 """
-
+# TODO: Priority: 1 [general] Необходимл отладить стратегию(ии). На данный момент можно запустить симуляцию, но это не проверка стратегии на исторических данных.
+# Нужен отдельный режим history (как simulation\trade), что покажет, где бы по текущей стртегии был бы вход в сделку, выход из нее и профит + расчет итогового профита.
 # TODO: Priority: 1 [general] Обложить все юнит тестами
 # TODO: Пока выносить параметры, что стоит указывать в аргументах при запуске, а не хардкодить.
 # TODO: Сделать возможность выставлять только SL или TP
@@ -73,9 +74,10 @@ def update_frame(symbol, frame: pd.DataFrame, last_bar_frame, ma, rsi, atr):
             rsi.startegyRSI_close(frame)
             return frame
     except(AttributeError):
-        logger.critical(str(symbol) + ": update_frame(): 1 оr more objects become 'None/Null'")
+        logger.critical(str(symbol) + ": 1 оr more objects become 'None/Null'")
 
 def isCondition(frame, index, order_id):
+    # Выглядит как какое-то порно... Надо подумамть.
     val = "NaN"
     if index == len(frame['target']) - 1: 
         val = order_id
@@ -83,16 +85,20 @@ def isCondition(frame, index, order_id):
 
 def position_id_in_frame(order: Order, frame: pd.DataFrame, is_order_open):
     if type(order) == Order or is_order_open:
-        if 'order_id' in frame.columns:
-            frame.loc[frame.index[-1], 'order_id'] = order.id
-            logger.info("order_id обновлен.")
-        else:
-            logger.info("Столбец 'order_id' не существует и будет создан.")
-            close_ser = frame['target'].to_list()
-            is_opened_list = []
-            for index, item in enumerate(close_ser):
-                is_opened_list.append(isCondition(frame, index, order.id))
-            frame['order_id'] = is_opened_list
+        value = order.id
+    else:
+        value = "NaN"
+
+    if 'order_id' in frame.columns:
+        frame.loc[frame.index[-1], 'order_id'] = value
+        logger.info("order_id обновлен.")
+    else:
+        logger.info("Столбец 'order_id' не существует и будет создан.")
+        close_ser = frame['target'].to_list()
+        is_opened_list = []
+        for index, item in enumerate(close_ser):
+            is_opened_list.append(isCondition(frame, index, value))
+        frame['order_id'] = is_opened_list
     return frame
 
 def lets_trade(symbol):
@@ -130,6 +136,7 @@ def lets_trade(symbol):
         atr_value = float(np.array(frame['ATR'])[-1] * 2)
         
         # signal = "Open_buy"
+        signal = "Open_sell"
         # close_signal = "Close_buy"
         try:
             # TODO: Очень много if-ов надо прикинуть как сделать логику проще или раскидать по функциям (что мне кажется более реально)
@@ -155,10 +162,12 @@ def lets_trade(symbol):
                     if is_order_open and close_signal == "Close_buy":
                         logger.info(str(symbol) + ": Signal to close position find: " + close_signal)
                         order_buy.position_close()
+                        order_buy = None
 
                     if (is_order_open and close_signal == "Close_sell") and args.buy_sell == True:
                         logger.info(str(symbol) + ": Signal to close position find: " + close_signal)
                         order_sell.position_close() 
+                        order_sell = None
 
                     # Функция Trailing stop
                     if type(order_buy) == Order and args.trailing_stop != 0:
@@ -235,14 +244,16 @@ def startRobot():
     print("Posible commands:")
     print("exit - exit from programm")
     print("Please enter command:")
-    while True:
-        command = input()
-        if command == "exit":
-            logger.info("Exit from programm.")
-            break
-        else:
-            print("Please enter correct command.")
-            
+    try: 
+        while True:
+            command = input()
+            if command == "exit":
+                logger.info("Exit from programm.")
+                break
+            else:
+                print("Please enter correct command.")
+    except Exception as e:
+        logger.warning("Ошибка при работе с вводом! Экстренное завершение программы.")    
 
 startRobot()
 # shut down connection to MetaTrader 5
