@@ -136,7 +136,7 @@ def lets_trade(symbol):
         atr_value = float(np.array(frame['ATR'])[-1] * 2)
         
         # signal = "Open_buy"
-        signal = "Open_sell"
+        # signal = "Open_sell"
         # close_signal = "Close_buy"
         try:
             # TODO: Очень много if-ов надо прикинуть как сделать логику проще или раскидать по функциям (что мне кажется более реально)
