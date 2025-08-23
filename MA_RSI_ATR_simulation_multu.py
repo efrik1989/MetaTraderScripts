@@ -103,6 +103,7 @@ def position_id_in_frame(order: Order, frame: pd.DataFrame, is_order_open):
 
 def lets_trade(symbol):
     mt5_a.selectSymbol(symbol)
+    # RiskManager не должен создаваться для каждого инструмента он единый должен быть...
     risk_manager = RiskManager(args.monney_manager, args.lost_risk)
     tick_obj = tick.Tick(symbol)
     frame = mt5_a.get_rates_frame(symbol, 2, args.range, args.timeframe)

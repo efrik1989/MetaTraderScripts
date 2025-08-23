@@ -15,7 +15,7 @@ logger = app_logger.get_logger(__name__)
 class RiskManager():
     def __init__(self, trade_risk, lost_risk):
         self.trade_risk = trade_risk
-        self.lost_risk = lost_risk
+        self.lost_risk = float(lost_risk)
         self.account_info_dict = None
         self.equity = None
 
@@ -55,17 +55,5 @@ class RiskManager():
          else:
               logger.warning("is_balance_too_low(): Balances have gone beyond the risk value.")
               return False
-"""    
-def start():
-    if not mt5.initialize():
-            print("initialize() failed, error code =",mt5.last_error())
-            quit()
-    authorized = mt5.login(login=23677, server="FINAM-AO",password="3C$ap3%H")
-    risk_manager = RiskManager(10, 5)
-    risk_manager.get_equity()
-    print(risk_manager.equity)
-    print(risk_manager.account_info_dict)
-    print(risk_manager.is_tradable())
-    print(risk_manager.is_equity_satisfactory()) 
-
-start()"""
+         
+         
